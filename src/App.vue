@@ -119,30 +119,45 @@
               
               <el-form-item label="文件类型:">
                 <div class="file-type-selector">
-                  <el-radio-group v-model="form.fileTypes" class="file-type-radio-group">
-                    <el-radio label="image" class="file-type-radio">
-                      <div class="radio-content">
-                        <div class="radio-icon">
+                  <div class="file-type-radio-group">
+                    <div 
+                      class="file-type-option" 
+                      :class="{ 'is-selected': form.fileTypes === 'image' }"
+                      @click="form.fileTypes = 'image'"
+                    >
+                      <div class="option-content">
+                        <div class="option-icon">
                           <el-icon><Picture /></el-icon>
                         </div>
-                        <div class="radio-text">
-                          <div class="radio-label">仅图片文件</div>
-                          <div class="radio-description">只处理图片格式文件</div>
+                        <div class="option-text">
+                          <div class="option-label">仅图片文件</div>
+                          <div class="option-description">只处理图片格式文件</div>
+                        </div>
+                        <div class="option-radio">
+                          <div class="radio-dot" :class="{ 'active': form.fileTypes === 'image' }"></div>
                         </div>
                       </div>
-                    </el-radio>
-                    <el-radio label="all" class="file-type-radio">
-                      <div class="radio-content">
-                        <div class="radio-icon">
+                    </div>
+                    
+                    <div 
+                      class="file-type-option" 
+                      :class="{ 'is-selected': form.fileTypes === 'all' }"
+                      @click="form.fileTypes = 'all'"
+                    >
+                      <div class="option-content">
+                        <div class="option-icon">
                           <el-icon><Document /></el-icon>
                         </div>
-                        <div class="radio-text">
-                          <div class="radio-label">所有文件</div>
-                          <div class="radio-description">处理所有类型的文件</div>
+                        <div class="option-text">
+                          <div class="option-label">所有文件</div>
+                          <div class="option-description">处理所有类型的文件</div>
+                        </div>
+                        <div class="option-radio">
+                          <div class="radio-dot" :class="{ 'active': form.fileTypes === 'all' }"></div>
                         </div>
                       </div>
-                    </el-radio>
-                  </el-radio-group>
+                    </div>
+                  </div>
                   
                   <div class="file-type-info" v-if="form.fileTypes === 'image'">
                     <div class="info-header">
@@ -1240,35 +1255,35 @@ body {
   width: 100%;
 }
 
-.file-type-radio {
+.file-type-option {
   width: 100%;
-  margin-right: 0 !important;
-}
-
-.file-type-radio .el-radio__label {
-  width: 100%;
-  padding-left: 0;
-}
-
-.radio-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
+  cursor: pointer;
   border: 2px solid #e4e7ed;
   border-radius: 8px;
   transition: all 0.3s ease;
-  cursor: pointer;
   background: #fafafa;
+  overflow: hidden;
 }
 
-.file-type-radio.is-checked .radio-content {
+.file-type-option:hover {
+  border-color: #c0c4cc;
+  background: #f5f7fa;
+}
+
+.file-type-option.is-selected {
   border-color: #409eff;
   background: #f0f9ff;
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
 }
 
-.radio-icon {
+.option-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.option-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1278,32 +1293,67 @@ body {
   background: #e4e7ed;
   color: #606266;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
-.file-type-radio.is-checked .radio-icon {
+.file-type-option.is-selected .option-icon {
   background: #409eff;
   color: white;
 }
 
-.radio-icon .el-icon {
+.option-icon .el-icon {
   font-size: 20px;
 }
 
-.radio-text {
+.option-text {
   flex: 1;
+  min-width: 0;
 }
 
-.radio-label {
+.option-label {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
   margin-bottom: 4px;
+  line-height: 1.2;
 }
 
-.radio-description {
+.option-description {
   font-size: 14px;
   color: #909399;
   line-height: 1.4;
+}
+
+.option-radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e4e7ed;
+  border: 2px solid #e4e7ed;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.file-type-option.is-selected .option-radio {
+  background: #409eff;
+  border-color: #409eff;
+}
+
+.radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: white;
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.file-type-option.is-selected .radio-dot {
+  opacity: 1;
+  transform: scale(1.2);
 }
 
 .file-type-info {
@@ -1357,25 +1407,28 @@ body {
     padding-left: 20px;
   }
 
-  .radio-content {
+  .file-type-option {
     padding: 12px;
+  }
+  
+  .option-content {
     gap: 8px;
   }
   
-  .radio-icon {
+  .option-icon {
     width: 32px;
     height: 32px;
   }
   
-  .radio-icon .el-icon {
+  .option-icon .el-icon {
     font-size: 16px;
   }
   
-  .radio-label {
+  .option-label {
     font-size: 14px;
   }
   
-  .radio-description {
+  .option-description {
     font-size: 12px;
   }
   
