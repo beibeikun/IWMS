@@ -1,9 +1,21 @@
-# 🛠️ IWMS - 智能文件管理系统
+<div align="center">
 
+<img src="public/README_logo.png" alt="IWMS Logo" width="200">
+
+# *Image Warehouse Management System*
+
+---
+
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://electronjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-16.0+-green.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue.svg)](https://electronjs.org/)
-[![Vue](https://img.shields.io/badge/Vue-3.0+-green.svg)](https://vuejs.org/)
-[![Electron](https://img.shields.io/badge/Electron-Latest-blue.svg)](https://electronjs.org/)
+[![GitHub Stars](https://img.shields.io/github/stars/beibeikun/IWMS?style=social)](https://github.com/beibeikun/IWMS)
+
+**IWMS是一个跨平台智能文件管理工具箱，基于Electron和Vue 3构建**
+
+</div>
+
+---
 
 基于Electron和Vue 3构建的强大智能文件管理工具箱。目前包含IWMS核心功能，未来将扩展更多实用工具。
 
@@ -33,7 +45,7 @@
 
 1. **克隆仓库**
    ```bash
-   git clone https://github.com/yourusername/IWMS.git
+   git clone https://github.com/beibeikun/IWMS.git
    cd IWMS
    ```
 
@@ -163,7 +175,7 @@ node iwms-demo.js
 
 ## ⭐ 星标历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/IWMS&type=Date)](https://star-history.com/#yourusername/IWMS&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=beibeikun/IWMS&type=Date)](https://star-history.com/#beibeikun/IWMS&Date)
 
 ---
 
