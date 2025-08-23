@@ -118,12 +118,49 @@
               </el-form-item>
               
               <el-form-item label="文件类型:">
-                <el-radio-group v-model="form.fileTypes">
-                  <el-radio label="image">仅图片文件</el-radio>
-                  <el-radio label="all">所有文件</el-radio>
-                </el-radio-group>
-                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
-                  图片文件包括: .jpg, .jpeg, .png, .gif, .bmp, .tiff, .webp, .svg, .ico
+                <div class="file-type-selector">
+                  <el-radio-group v-model="form.fileTypes" class="file-type-radio-group">
+                    <el-radio label="image" class="file-type-radio">
+                      <div class="radio-content">
+                        <div class="radio-icon">
+                          <el-icon><Picture /></el-icon>
+                        </div>
+                        <div class="radio-text">
+                          <div class="radio-label">仅图片文件</div>
+                          <div class="radio-description">只处理图片格式文件</div>
+                        </div>
+                      </div>
+                    </el-radio>
+                    <el-radio label="all" class="file-type-radio">
+                      <div class="radio-content">
+                        <div class="radio-icon">
+                          <el-icon><Document /></el-icon>
+                        </div>
+                        <div class="radio-text">
+                          <div class="radio-label">所有文件</div>
+                          <div class="radio-description">处理所有类型的文件</div>
+                        </div>
+                      </div>
+                    </el-radio>
+                  </el-radio-group>
+                  
+                  <div class="file-type-info" v-if="form.fileTypes === 'image'">
+                    <div class="info-header">
+                      <el-icon><InfoFilled /></el-icon>
+                      <span>支持的图片格式</span>
+                    </div>
+                    <div class="format-tags">
+                      <el-tag size="small" type="success">.jpg</el-tag>
+                      <el-tag size="small" type="success">.jpeg</el-tag>
+                      <el-tag size="small" type="success">.png</el-tag>
+                      <el-tag size="small" type="success">.gif</el-tag>
+                      <el-tag size="small" type="success">.bmp</el-tag>
+                      <el-tag size="small" type="success">.tiff</el-tag>
+                      <el-tag size="small" type="success">.webp</el-tag>
+                      <el-tag size="small" type="success">.svg</el-tag>
+                      <el-tag size="small" type="success">.ico</el-tag>
+                    </div>
+                  </div>
                 </div>
               </el-form-item>
               
@@ -358,9 +395,33 @@
 <script>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { 
+  Picture, 
+  Document, 
+  InfoFilled,
+  Expand,
+  Fold,
+  Operation,
+  Box,
+  EditPen,
+  Delete,
+  Setting
+} from '@element-plus/icons-vue'
 
 export default {
   name: 'App',
+  components: {
+    Picture,
+    Document,
+    InfoFilled,
+    Expand,
+    Fold,
+    Operation,
+    Box,
+    EditPen,
+    Delete,
+    Setting
+  },
   setup() {
     const currentStep = ref(0)
     const activeTab = ref('matched')
@@ -1167,6 +1228,112 @@ body {
   overflow-y: auto;
 }
 
+/* 文件类型选择器样式 */
+.file-type-selector {
+  width: 100%;
+}
+
+.file-type-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.file-type-radio {
+  width: 100%;
+  margin-right: 0 !important;
+}
+
+.file-type-radio .el-radio__label {
+  width: 100%;
+  padding-left: 0;
+}
+
+.radio-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid #e4e7ed;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background: #fafafa;
+}
+
+.file-type-radio.is-checked .radio-content {
+  border-color: #409eff;
+  background: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.radio-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #e4e7ed;
+  color: #606266;
+  transition: all 0.3s ease;
+}
+
+.file-type-radio.is-checked .radio-icon {
+  background: #409eff;
+  color: white;
+}
+
+.radio-icon .el-icon {
+  font-size: 20px;
+}
+
+.radio-text {
+  flex: 1;
+}
+
+.radio-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+
+.radio-description {
+  font-size: 14px;
+  color: #909399;
+  line-height: 1.4;
+}
+
+.file-type-info {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f0f9ff;
+  border: 1px solid #d1e7ff;
+  border-radius: 8px;
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #409eff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.format-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.format-tags .el-tag {
+  margin: 0;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .sidebar {
@@ -1188,6 +1355,37 @@ body {
   
   .header-content {
     padding-left: 20px;
+  }
+
+  .radio-content {
+    padding: 12px;
+    gap: 8px;
+  }
+  
+  .radio-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .radio-icon .el-icon {
+    font-size: 16px;
+  }
+  
+  .radio-label {
+    font-size: 14px;
+  }
+  
+  .radio-description {
+    font-size: 12px;
+  }
+  
+  .format-tags {
+    gap: 6px;
+  }
+  
+  .format-tags .el-tag {
+    font-size: 11px;
+    padding: 2px 6px;
   }
 }
 </style>
