@@ -186,6 +186,11 @@ ipcMain.handle('preview-file-changes', async (event, { files, mapping, outputPat
     let skippedCount = 0
     let conflictCount = 0
     
+    // 创建带时间戳的输出目录名称用于预览
+    const timestamp = new Date().toISOString().slice(0, 23).replace(/:/g, '-').replace(/\./g, '-')
+    const outputDirName = `IWMS_重命名结果_${timestamp}`
+    const previewOutputPath = path.join(outputPath, outputDirName)
+    
     for (const filePath of files) {
       try {
         const fileName = path.basename(filePath)
@@ -204,7 +209,7 @@ ipcMain.handle('preview-file-changes', async (event, { files, mapping, outputPat
           }
           
           // 检查冲突
-          const outputFilePath = path.join(outputPath, newFileName)
+          const outputFilePath = path.join(previewOutputPath, newFileName)
           
           if (await fs.pathExists(outputFilePath)) {
             conflictCount++
@@ -404,8 +409,13 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
   // 收集图片压缩任务，稍后批量处理
   const imageCompressionTasks = []
   
+  // 创建带时间戳的输出目录，避免重名
+  const timestamp = new Date().toISOString().slice(0, 23).replace(/:/g, '-').replace(/\./g, '-')
+  const outputDirName = `IWMS_重命名结果_${timestamp}`
+  const finalOutputPath = path.join(outputPath, outputDirName)
+  
   // 确保输出目录存在
-  await fs.ensureDir(outputPath)
+  await fs.ensureDir(finalOutputPath)
   
   // 将数组格式的映射转换为 Map 对象，确保兼容性
   let mappingMap
@@ -437,10 +447,10 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
           newFileName += extension
         }
         
-        const outputFilePath = path.join(outputPath, newFileName)
+        const outputFilePath = path.join(finalOutputPath, newFileName)
         
         // 初始化最终输出路径
-        let finalOutputPath = outputFilePath
+        let finalOutputFilePath = outputFilePath
         
         // 检查文件名冲突
         if (await fs.pathExists(outputFilePath)) {
@@ -449,10 +459,10 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
           if (conflictStrategy === 'append') {
             // 冲突策略：追加标识符
             let counter = 1
-            while (await fs.pathExists(finalOutputPath)) {
+            while (await fs.pathExists(finalOutputFilePath)) {
               const nameWithoutExt = path.parse(newFileName).name
               const ext = path.parse(newFileName).ext
-              finalOutputPath = path.join(outputPath, `${nameWithoutExt}_conflict-${counter}${ext}`)
+              finalOutputFilePath = path.join(finalOutputPath, `${nameWithoutExt}_conflict-${counter}${ext}`)
               counter++
             }
           } else if (conflictStrategy === 'skip') {
@@ -467,7 +477,7 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
             skippedCount++
             continue
           }
-          // 如果conflictStrategy是'overwrite'，finalOutputPath 保持为 outputFilePath
+          // 如果conflictStrategy是'overwrite'，finalOutputFilePath 保持为 outputFilePath
         }
         
         // 检查是否为图片文件且需要压缩
@@ -478,7 +488,7 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
           // 图片文件，添加到压缩任务中
           imageCompressionTasks.push({
             inputPath: filePath,
-            outputPath: finalOutputPath,
+            outputPath: finalOutputFilePath,
             fileName: fileName,
             maxDimension: maxDimension,
             maxFileSize: maxFileSize
@@ -488,13 +498,13 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
           results.push({
             sourcePath: filePath,
             originalName: fileName,
-            newName: path.basename(finalOutputPath),
+            newName: path.basename(finalOutputFilePath),
             status: 'pending', // 标记为待处理
             message: '等待压缩处理'
           })
         } else {
           // 非图片文件，直接复制
-          await fs.copy(filePath, finalOutputPath)
+          await fs.copy(filePath, finalOutputFilePath)
           results.push({
             sourcePath: filePath,
             originalName: fileName,
@@ -613,7 +623,8 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
       compressed: compressedCount,      // 压缩
       compressionTime: compressionTime, // 压缩耗时
       threadsUsed: threadsUsed,        // 使用线程数
-      total: files.length               // 总文件数
+      total: files.length,              // 总文件数
+      outputDirectory: finalOutputPath  // 实际输出目录
     }
   }
 })

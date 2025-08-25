@@ -348,6 +348,14 @@
         />
         
         <el-alert
+          v-if="executionSummary.outputDirectory"
+          :title="`输出目录: ${executionSummary.outputDirectory}`"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+        
+        <el-alert
           v-if="executionSummary.compressionTime > 0"
           :title="`压缩性能: 使用 ${executionSummary.threadsUsed} 个线程，耗时 ${executionSummary.compressionTime}ms`"
           type="info"
@@ -574,12 +582,15 @@ export default {
     
     const openOutputFolder = async () => {
       try {
-        if (!form.outputPath) {
+        // 如果有执行结果且包含输出目录信息，优先使用实际输出目录
+        const targetPath = executionSummary.value.outputDirectory || form.outputPath
+        
+        if (!targetPath) {
           ElMessage.warning('请先选择输出文件夹')
           return
         }
         
-        const result = await window.electronAPI.openFolder(form.outputPath)
+        const result = await window.electronAPI.openFolder(targetPath)
         
         if (result.success) {
           ElMessage.success(result.message)
@@ -603,7 +614,15 @@ export default {
     
     const exportExecutionResults = async () => {
       try {
-        const reportPath = await window.electronAPI.exportResults(executionResults.value, form.outputPath)
+        // 如果有执行结果且包含输出目录信息，优先使用实际输出目录
+        const targetPath = executionSummary.value.outputDirectory || form.outputPath
+        
+        if (!targetPath) {
+          ElMessage.warning('请先选择输出文件夹')
+          return
+        }
+        
+        const reportPath = await window.electronAPI.exportResults(executionResults.value, targetPath)
         ElMessage.success(`执行报告已导出到: ${reportPath}`)
       } catch (error) {
         ElMessage.error(`导出报告失败: ${error.message}`)
