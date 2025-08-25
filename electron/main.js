@@ -1,35 +1,66 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
-const path = require('path')
-const fs = require('fs-extra')
-const XLSX = require('xlsx')
-const glob = require('fast-glob')
-const sharp = require('sharp')
-const { Worker, isMainThread, parentPort, workerData } = require('worker_threads')
-const os = require('os')
+/**
+ * IWMS 智能文件管理解决方案 - 主进程文件
+ * 
+ * 本文件是 Electron 应用的主进程，负责：
+ * - 创建和管理主窗口
+ * - 处理 IPC 通信
+ * - 文件操作（重命名、压缩、扫描等）
+ * - 多线程图片处理
+ * - 应用生命周期管理
+ * 
+ * @author IWMS Team
+ * @version 1.0.0
+ */
 
+// 导入 Electron 核心模块
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+// 导入 Node.js 核心模块
+const path = require('path')
+// 导入第三方依赖
+const fs = require('fs-extra')           // 增强的文件系统操作
+const XLSX = require('xlsx')            // Excel 文件处理
+const glob = require('fast-glob')       // 快速文件匹配
+const sharp = require('sharp')          // 图片处理库
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads')  // 多线程支持
+const os = require('os')                // 操作系统信息
+
+// 全局变量：主窗口实例
 let mainWindow
 
+/**
+ * 创建主窗口
+ * 
+ * 负责：
+ * - 配置窗口属性（尺寸、标题、图标等）
+ * - 设置 Web 安全策略
+ * - 加载前端页面
+ * - 配置开发/生产环境
+ * - 设置窗口显示时机
+ */
 function createWindow() {
+  // 创建新的浏览器窗口实例
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 1000,
-    show: false, // 延迟显示
+    width: 1200,                        // 窗口宽度
+    height: 1000,                       // 窗口高度
+    show: false,                        // 延迟显示，避免白屏闪烁
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      nodeIntegration: false,            // 禁用 Node.js 集成（安全考虑）
+      contextIsolation: true,            // 启用上下文隔离
+      preload: path.join(__dirname, 'preload.js')  // 预加载脚本路径
     },
-    title: 'IWMS',
-    icon: path.join(__dirname, '../assets/icon.png')
+    title: 'IWMS',                      // 窗口标题
+    icon: path.join(__dirname, '../assets/icon.png')  // 应用图标
   })
 
   // 检测是否为开发模式
+  // 通过多种方式判断：环境变量、打包状态等
   const isDev = process.env.NODE_ENV === 'development' || 
                  process.env.IS_DEV === 'true' || 
                  !app.isPackaged
 
   if (isDev) {
     console.log('开发模式：连接到 Vite 开发服务器...')
+    // 开发模式：连接到 Vite 开发服务器
     mainWindow.loadURL('http://localhost:5173')
     
     // 开发模式下打开开发者工具
@@ -38,17 +69,19 @@ function createWindow() {
     })
   } else {
     console.log('生产模式：加载本地文件...')
+    // 生产模式：加载打包后的本地文件
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
   // 改进的窗口显示逻辑
+  // 等待页面内容加载完成后再显示窗口，避免白屏
   mainWindow.once('ready-to-show', () => {
     console.log('窗口准备就绪，显示窗口...')
-    mainWindow.show()
-    mainWindow.focus()
+    mainWindow.show()                    // 显示窗口
+    mainWindow.focus()                   // 聚焦窗口
   })
 
-  // 添加错误处理
+  // 添加错误处理：页面加载失败时的处理逻辑
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error('页面加载失败:', errorCode, errorDescription, validatedURL)
     
@@ -61,7 +94,7 @@ function createWindow() {
     }
   })
 
-  // 添加加载状态监听
+  // 添加加载状态监听，用于调试和状态跟踪
   mainWindow.webContents.on('did-start-loading', () => {
     console.log('开始加载页面...')
   })
@@ -71,59 +104,177 @@ function createWindow() {
   })
 }
 
+// 应用生命周期管理
+// 当 Electron 完成初始化时创建窗口
 app.whenReady().then(createWindow)
 
+// 当所有窗口关闭时退出应用（macOS 除外）
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
+// macOS 应用激活事件处理
+// 当应用被激活时，如果没有窗口则创建新窗口
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
 })
 
-// IPC 处理器
-ipcMain.handle('select-folder', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory']
-  })
-  return result.filePaths[0] || null
+/**
+ * 预览文件变更
+ * 在主进程中安全地预览文件重命名结果，避免在渲染进程中使用 Node.js 模块
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 预览参数
+ * @param {Array} params.files - 文件路径数组
+ * @param {Array} params.mapping - 文件名映射数组
+ * @param {string} params.outputPath - 输出目录路径
+ * @returns {Object} 预览结果和统计信息
+ */
+ipcMain.handle('preview-file-changes', async (event, { files, mapping, outputPath }) => {
+  try {
+    const mappingMap = new Map(mapping)
+    const results = []
+    let processedCount = 0
+    let skippedCount = 0
+    let conflictCount = 0
+    
+    for (const filePath of files) {
+      try {
+        const fileName = path.basename(filePath)
+        const { base, sequence, extension } = parseFileName(fileName)
+        
+        if (mappingMap.has(base)) {
+          const newBase = mappingMap.get(base)
+          let newFileName = newBase
+          
+          if (sequence) {
+            newFileName += ` (${sequence})`
+          }
+          
+          if (extension) {
+            newFileName += extension
+          }
+          
+          // 检查冲突
+          const outputFilePath = path.join(outputPath, newFileName)
+          
+          if (await fs.pathExists(outputFilePath)) {
+            conflictCount++
+            results.push({
+              sourcePath: filePath,
+              originalName: fileName,
+              newName: newFileName,
+              status: 'conflict',
+              message: '目标文件已存在'
+            })
+          } else {
+            processedCount++
+            results.push({
+              sourcePath: filePath,
+              originalName: fileName,
+              newName: newFileName,
+              status: 'success',
+              message: ''
+            })
+          }
+        } else {
+          skippedCount++
+          results.push({
+            sourcePath: filePath,
+            originalName: fileName,
+            newName: '',
+            status: 'skipped',
+            message: '未命中映射表'
+          })
+        }
+      } catch (error) {
+        // 单个文件处理出错，记录错误但继续处理其他文件
+        results.push({
+          sourcePath: filePath,
+          originalName: path.basename(filePath),
+          newName: '',
+          status: 'error',
+          message: `处理失败: ${error.message}`
+        })
+      }
+    }
+    
+    return {
+      results,
+      summary: {
+        processed: processedCount,
+        skipped: skippedCount,
+        conflicts: conflictCount,
+        total: files.length
+      }
+    }
+  } catch (error) {
+    throw new Error(`预览文件变更失败: ${error.message}`)
+  }
 })
 
+// ==================== IPC 通信处理器 ====================
+
+/**
+ * 选择文件夹对话框
+ * 返回用户选择的文件夹路径
+ */
+ipcMain.handle('select-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']        // 只允许选择文件夹
+  })
+  return result.filePaths[0] || null    // 返回第一个选择的路径或 null
+})
+
+/**
+ * 选择 Excel 文件对话框
+ * 返回用户选择的 Excel 文件路径
+ */
 ipcMain.handle('select-excel-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile'],
+    properties: ['openFile'],           // 只允许选择文件
     filters: [
-      { name: 'Excel文件', extensions: ['xlsx', 'xls', 'csv'] }
+      { name: 'Excel文件', extensions: ['xlsx', 'xls', 'csv'] }  // 文件类型过滤器
     ]
   })
   return result.filePaths[0] || null
 })
 
+/**
+ * 读取 Excel 映射文件
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {string} filePath - Excel 文件路径
+ * @returns {Object} 包含映射数据和错误信息的对象
+ */
 ipcMain.handle('read-excel-mapping', async (event, filePath) => {
   try {
+    // 读取 Excel 文件
     const workbook = XLSX.readFile(filePath)
-    const sheetName = workbook.SheetNames[0]
-    const worksheet = workbook.Sheets[sheetName]
-    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+    const sheetName = workbook.SheetNames[0]        // 获取第一个工作表
+    const worksheet = workbook.Sheets[sheetName]    // 获取工作表数据
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })  // 转换为数组格式
     
-    const mapping = new Map()
-    const errors = []
+    const mapping = new Map()                       // 存储文件名映射关系
+    const errors = []                               // 存储错误信息
     
+    // 遍历每一行数据，解析映射关系
     for (let i = 0; i < data.length; i++) {
       const row = data[i]
-      if (row.length >= 2 && row[0] && row[1]) {
-        const oldName = String(row[0]).trim()
-        const newName = String(row[1]).trim()
+      if (row.length >= 2 && row[0] && row[1]) {   // 确保有足够的列且不为空
+        const oldName = String(row[0]).trim()       // 旧文件名（第一列）
+        const newName = String(row[1]).trim()       // 新文件名（第二列）
         
         if (oldName && newName) {
           if (mapping.has(oldName)) {
+            // 检查重复的旧文件名
             errors.push(`第${i + 1}行: 重复的旧名称 "${oldName}"`)
           } else {
-            mapping.set(oldName, newName)
+            mapping.set(oldName, newName)            // 添加到映射表
           }
         }
       }
@@ -135,25 +286,39 @@ ipcMain.handle('read-excel-mapping', async (event, filePath) => {
   }
 })
 
+/**
+ * 扫描指定目录中的文件
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {string} inputPath - 输入目录路径
+ * @param {boolean} recursive - 是否递归扫描子目录
+ * @param {Array} fileTypes - 文件类型过滤（目前支持 'image'）
+ * @returns {Array} 符合条件的文件路径数组
+ */
 ipcMain.handle('scan-files', async (event, inputPath, recursive = false, fileTypes = ['image']) => {
   try {
+    // 根据是否递归设置文件匹配模式
     const pattern = recursive ? '**/*.*' : '*.*'
+    
+    // 使用 fast-glob 扫描文件
     const files = await glob(pattern, {
-      cwd: inputPath,
-      absolute: true,
-      ignore: ['**/.*', '**/node_modules/**']
+      cwd: inputPath,                   // 基础目录
+      absolute: true,                   // 返回绝对路径
+      ignore: ['**/.*', '**/node_modules/**']  // 忽略隐藏文件和 node_modules
     })
     
-    // 图片文件扩展名
+    // 图片文件扩展名列表
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.svg', '.ico']
     
+    // 过滤文件：只保留符合条件的文件
     return files.filter(file => {
-      const stat = fs.statSync(file)
-      if (!stat.isFile()) return false
+      const stat = fs.statSync(file)    // 获取文件状态
+      if (!stat.isFile()) return false  // 只处理文件，忽略目录
       
-      const ext = path.extname(file).toLowerCase()
+      const ext = path.extname(file).toLowerCase()  // 获取文件扩展名
       
       if (fileTypes.includes('image')) {
+        // 如果指定了图片类型，只返回图片文件
         return imageExtensions.includes(ext)
       }
       
@@ -165,31 +330,53 @@ ipcMain.handle('scan-files', async (event, inputPath, recursive = false, fileTyp
   }
 })
 
+/**
+ * 处理文件批量操作
+ * 
+ * 主要功能：
+ * - 根据映射表重命名文件
+ * - 处理文件名冲突
+ * - 图片压缩处理
+ * - 多线程批量处理
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 处理参数
+ * @param {string} params.inputPath - 输入目录
+ * @param {string} params.outputPath - 输出目录
+ * @param {Map} params.mapping - 文件名映射表
+ * @param {Array} params.files - 要处理的文件列表
+ * @param {string} params.conflictStrategy - 冲突处理策略
+ * @param {number} params.maxDimension - 图片最大尺寸
+ * @returns {Object} 处理结果和统计信息
+ */
 ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, files, conflictStrategy, maxDimension }) => {
-  const results = []
-  let processedCount = 0
-  let skippedCount = 0
-  let conflictCount = 0
-  let errorCount = 0
-  let compressedCount = 0
-  let compressionTime = 0
-  let threadsUsed = 1
+  const results = []                    // 存储每个文件的处理结果
+  let processedCount = 0               // 成功处理的文件数
+  let skippedCount = 0                 // 跳过的文件数
+  let conflictCount = 0                // 冲突的文件数
+  let errorCount = 0                   // 错误的文件数
+  let compressedCount = 0              // 压缩的文件数
+  let compressionTime = 0              // 压缩总耗时
+  let threadsUsed = 1                  // 使用的线程数
   
-  // 收集图片压缩任务
+  // 收集图片压缩任务，稍后批量处理
   const imageCompressionTasks = []
   
   // 确保输出目录存在
   await fs.ensureDir(outputPath)
   
+  // 遍历处理每个文件
   for (const filePath of files) {
     try {
-      const fileName = path.basename(filePath)
-      const { base, sequence, extension } = parseFileName(fileName)
+      const fileName = path.basename(filePath)      // 获取文件名
+      const { base, sequence, extension } = parseFileName(fileName)  // 解析文件名
       
       if (mapping.has(base)) {
-        const newBase = mapping.get(base)
+        // 如果文件名在映射表中，进行重命名处理
+        const newBase = mapping.get(base)           // 获取新文件名
         let newFileName = newBase
         
+        // 保持原有的编号和扩展名
         if (sequence) {
           newFileName += ` (${sequence})`
         }
@@ -200,12 +387,13 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
         
         const outputFilePath = path.join(outputPath, newFileName)
         
-        // 检查冲突
+        // 检查文件名冲突
         if (await fs.pathExists(outputFilePath)) {
           conflictCount++
           let finalOutputPath = outputFilePath
           
           if (conflictStrategy === 'append') {
+            // 冲突策略：追加标识符
             let counter = 1
             while (await fs.pathExists(finalOutputPath)) {
               const nameWithoutExt = path.parse(newFileName).name
@@ -214,6 +402,7 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
               counter++
             }
           } else if (conflictStrategy === 'skip') {
+            // 冲突策略：跳过
             results.push({
               sourcePath: filePath,
               originalName: fileName,
@@ -252,6 +441,7 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
         
         processedCount++
       } else {
+        // 文件名不在映射表中，跳过
         results.push({
           sourcePath: filePath,
           originalName: fileName,
@@ -262,6 +452,7 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
         skippedCount++
       }
     } catch (error) {
+      // 处理过程中出现错误
       errorCount++
       results.push({
         sourcePath: filePath,
@@ -332,22 +523,33 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
     }
   }
   
+  // 返回处理结果和统计信息
   return {
     results,
     summary: {
-      processed: processedCount,
-      skipped: skippedCount,
-      conflicts: conflictCount,
-      errors: errorCount,
-      compressed: compressedCount,
-      compressionTime: compressionTime,
-      threadsUsed: threadsUsed,
-      total: files.length
+      processed: processedCount,        // 成功处理
+      skipped: skippedCount,            // 跳过
+      conflicts: conflictCount,         // 冲突
+      errors: errorCount,               // 错误
+      compressed: compressedCount,      // 压缩
+      compressionTime: compressionTime, // 压缩耗时
+      threadsUsed: threadsUsed,        // 使用线程数
+      total: files.length               // 总文件数
     }
   }
 })
 
-// 解析文件名，提取主名、编号和扩展名
+/**
+ * 解析文件名，提取主名、编号和扩展名
+ * 
+ * 支持的文件名格式：
+ * - filename (1).ext  - 带编号的文件
+ * - filename.ext       - 普通文件
+ * - filename          - 无扩展名文件
+ * 
+ * @param {string} fileName - 要解析的文件名
+ * @returns {Object} 包含 base、sequence、extension 的对象
+ */
 function parseFileName(fileName) {
   // 匹配带编号的文件名: filename (1).ext
   const numberedPattern = /^(.+?)\s*\((\d+)\)(\.[^.]+)$/
@@ -355,9 +557,9 @@ function parseFileName(fileName) {
   
   if (match) {
     return {
-      base: match[1].trim(),
-      sequence: match[2],
-      extension: match[3]
+      base: match[1].trim(),            // 主文件名
+      sequence: match[2],               // 编号
+      extension: match[3]               // 扩展名
     }
   }
   
@@ -367,36 +569,47 @@ function parseFileName(fileName) {
   
   if (simpleMatch) {
     return {
-      base: simpleMatch[1].trim(),
-      sequence: null,
-      extension: simpleMatch[2]
+      base: simpleMatch[1].trim(),      // 主文件名
+      sequence: null,                   // 无编号
+      extension: simpleMatch[2]         // 扩展名
     }
   }
   
   // 无扩展名的情况
   return {
-    base: fileName,
-    sequence: null,
-    extension: ''
+    base: fileName,                     // 整个文件名作为主名
+    sequence: null,                     // 无编号
+    extension: ''                       // 无扩展名
   }
 }
 
+/**
+ * 导出处理结果到 CSV 文件
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {Array} results - 处理结果数组
+ * @param {string} outputPath - 输出目录路径
+ * @returns {string} 生成的报告文件路径
+ */
 ipcMain.handle('export-results', async (event, results, outputPath) => {
   try {
+    // 构建 CSV 内容
     const csvContent = [
       '源文件路径,原文件名,新文件名,处理状态,备注/错误信息'
     ]
     
+    // 添加每一行的数据
     for (const result of results) {
       csvContent.push([
-        result.sourcePath,
-        result.originalName,
-        result.newName,
-        result.status,
-        result.message
+        result.sourcePath,               // 源文件路径
+        result.originalName,             // 原文件名
+        result.newName,                  // 新文件名
+        result.status,                   // 处理状态
+        result.message                   // 备注或错误信息
       ].map(field => `"${field}"`).join(','))
     }
     
+    // 生成带时间戳的报告文件名
     const reportPath = path.join(outputPath, `处理报告_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`)
     await fs.writeFile(reportPath, csvContent.join('\n'), 'utf8')
     
@@ -406,7 +619,19 @@ ipcMain.handle('export-results', async (event, results, outputPath) => {
   }
 })
 
-// 多线程图片压缩功能
+/**
+ * 多线程图片压缩功能
+ * 
+ * 支持批量处理多张图片，可选择单线程或多线程模式
+ * 多线程模式会根据 CPU 核心数自动调整线程数量
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 压缩参数
+ * @param {Array} params.imageTasks - 图片任务数组
+ * @param {number} params.maxDimension - 最大尺寸限制
+ * @param {boolean} params.useMultiThread - 是否使用多线程
+ * @returns {Object} 压缩结果和统计信息
+ */
 ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension, useMultiThread = true }) => {
   try {
     if (!maxDimension || maxDimension <= 0) {
@@ -425,7 +650,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
     }
 
     if (!useMultiThread || imageTasks.length <= 2) {
-      // 单线程处理
+      // 单线程处理：适用于少量文件或禁用多线程的情况
       const startTime = Date.now()
       const results = []
       
@@ -449,13 +674,13 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
             }
           }
           
-          // 压缩图片
+          // 压缩图片：调整尺寸并转换为 JPEG 格式
           await image
             .resize(width, height, {
-              fit: 'inside',
-              withoutEnlargement: true
+              fit: 'inside',             // 保持宽高比，不放大
+              withoutEnlargement: true   // 不放大图片
             })
-            .jpeg({ quality: 85 })
+            .jpeg({ quality: 85 })      // 转换为 JPEG，质量 85%
             .toFile(task.outputPath)
           
           results.push({
@@ -482,7 +707,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
       return { results, totalTime, threadsUsed: 1 }
     }
 
-    // 多线程处理
+    // 多线程处理：适用于大量文件的情况
     const startTime = Date.now()
     const numThreads = Math.min(os.cpus().length, imageTasks.length, 8) // 最多8个线程
     const results = []
@@ -498,6 +723,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
       
       if (threadTasks.length > 0) {
         const workerPromise = new Promise((resolve, reject) => {
+          // 创建 Worker 线程处理图片压缩
           const worker = new Worker(`
             const { parentPort, workerData } = require('worker_threads');
             const sharp = require('sharp');
@@ -566,6 +792,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
             workerData: { tasks: threadTasks, maxDimension }
           });
           
+          // 处理 Worker 消息
           worker.on('message', (message) => {
             if (message.error) {
               reject(new Error(message.error));
@@ -590,7 +817,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
     // 等待所有线程完成
     const threadResults = await Promise.all(workerPromises);
     
-    // 合并结果
+    // 合并所有线程的结果
     for (const threadResult of threadResults) {
       results.push(...threadResult);
     }
@@ -609,7 +836,19 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
   }
 })
 
-// 单张图片压缩功能（保持兼容性）
+/**
+ * 单张图片压缩功能（保持兼容性）
+ * 
+ * 这是为了保持向后兼容性而保留的接口
+ * 新代码建议使用 compress-images-batch 进行批量处理
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 压缩参数
+ * @param {string} params.inputPath - 输入图片路径
+ * @param {string} params.outputPath - 输出图片路径
+ * @param {number} params.maxDimension - 最大尺寸限制
+ * @returns {Object} 压缩结果
+ */
 ipcMain.handle('compress-image', async (event, { inputPath, outputPath, maxDimension }) => {
   try {
     if (!maxDimension || maxDimension <= 0) {

@@ -541,75 +541,18 @@ export default {
         // 扫描文件
         const files = await window.electronAPI.scanFiles(form.inputPath, form.recursive, form.fileTypes)
         
-        // 构建映射Map
-        const mappingMap = new Map(mappingData.value)
+        // 使用新的 API 预览文件变更，避免在渲染进程中使用 Node.js 模块
+        const previewResult = await window.electronAPI.previewFileChanges({
+          files: files,
+          mapping: mappingData.value,
+          outputPath: form.outputPath
+        })
         
-        // 预览处理结果
-        const results = []
-        let processedCount = 0
-        let skippedCount = 0
-        let conflictCount = 0
+        // 更新预览结果和统计信息
+        previewResults.value = previewResult.results
+        summary.value = previewResult.summary
         
-        for (const filePath of files) {
-          const fileName = require('path').basename(filePath)
-          const { base, sequence, extension } = parseFileName(fileName)
-          
-          if (mappingMap.has(base)) {
-            const newBase = mappingMap.get(base)
-            let newFileName = newBase
-            
-            if (sequence) {
-              newFileName += ` (${sequence})`
-            }
-            
-            if (extension) {
-              newFileName += extension
-            }
-            
-            // 检查冲突
-            const outputFilePath = require('path').join(form.outputPath, newFileName)
-            const fs = require('fs-extra')
-            
-            if (await fs.pathExists(outputFilePath)) {
-              conflictCount++
-              results.push({
-                sourcePath: filePath,
-                originalName: fileName,
-                newName: newFileName,
-                status: 'conflict',
-                message: '目标文件已存在'
-              })
-            } else {
-              processedCount++
-              results.push({
-                sourcePath: filePath,
-                originalName: fileName,
-                newName: newFileName,
-                status: 'success',
-                message: ''
-              })
-            }
-          } else {
-            skippedCount++
-            results.push({
-              sourcePath: filePath,
-              originalName: fileName,
-              newName: '',
-              status: 'skipped',
-              message: '未命中映射表'
-            })
-          }
-        }
-        
-        previewResults.value = results
-        summary.value = {
-          processed: processedCount,
-          skipped: skippedCount,
-          conflicts: conflictCount,
-          total: files.length
-        }
-        
-        ElMessage.success(`预览完成: 命中 ${processedCount} 个文件`)
+        ElMessage.success(`预览完成: 命中 ${previewResult.summary.processed} 个文件，跳过 ${previewResult.summary.skipped} 个文件${previewResult.summary.conflicts > 0 ? `，冲突 ${previewResult.summary.conflicts} 个文件` : ''}`)
       } catch (error) {
         ElMessage.error(`预览失败: ${error.message}`)
       } finally {

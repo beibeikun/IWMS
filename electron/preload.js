@@ -1,12 +1,116 @@
+/**
+ * IWMS 智能文件管理解决方案 - 预加载脚本
+ * 
+ * 本文件是 Electron 应用的预加载脚本，负责：
+ * - 在渲染进程中暴露安全的 Node.js API
+ * - 建立主进程和渲染进程之间的通信桥梁
+ * - 提供文件系统操作的安全接口
+ * - 确保渲染进程的安全性
+ * 
+ * @author IWMS Team
+ * @version 1.0.0
+ */
+
+// 导入 Electron 的 contextBridge 和 ipcRenderer
 const { contextBridge, ipcRenderer } = require('electron')
 
+// 使用 contextBridge 在渲染进程中暴露安全的 API
+// 这样可以避免直接暴露 Node.js 模块，提高安全性
 contextBridge.exposeInMainWorld('electronAPI', {
+  /**
+   * 选择文件夹
+   * 打开系统文件夹选择对话框，返回用户选择的文件夹路径
+   * 
+   * @returns {Promise<string|null>} 选择的文件夹路径，如果取消则返回 null
+   */
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+
+  /**
+   * 选择 Excel 文件
+   * 打开系统文件选择对话框，只允许选择 Excel 相关文件
+   * 
+   * @returns {Promise<string|null>} 选择的文件路径，如果取消则返回 null
+   */
   selectExcelFile: () => ipcRenderer.invoke('select-excel-file'),
+
+  /**
+   * 读取 Excel 映射文件
+   * 解析 Excel 文件内容，提取文件名映射关系
+   * 
+   * @param {string} filePath - Excel 文件路径
+   * @returns {Promise<Object>} 包含映射数据和错误信息的对象
+   */
   readExcelMapping: (filePath) => ipcRenderer.invoke('read-excel-mapping', filePath),
+
+  /**
+   * 扫描文件
+   * 扫描指定目录中的文件，支持递归扫描和文件类型过滤
+   * 
+   * @param {string} inputPath - 输入目录路径
+   * @param {boolean} recursive - 是否递归扫描子目录
+   * @param {Array} fileTypes - 文件类型过滤数组
+   * @returns {Promise<Array>} 符合条件的文件路径数组
+   */
   scanFiles: (inputPath, recursive, fileTypes) => ipcRenderer.invoke('scan-files', inputPath, recursive, fileTypes),
-  processFiles: (options) => ipcRenderer.invoke('process-files', options),
+
+  /**
+   * 处理文件
+   * 执行文件批量操作，包括重命名、压缩等
+   * 
+   * @param {Object} params - 处理参数对象
+   * @param {string} params.inputPath - 输入目录路径
+   * @param {string} params.outputPath - 输出目录路径
+   * @param {Map} params.mapping - 文件名映射表
+   * @param {Array} params.files - 要处理的文件列表
+   * @param {string} params.conflictStrategy - 冲突处理策略
+   * @param {number} params.maxDimension - 图片最大尺寸
+   * @returns {Promise<Object>} 处理结果和统计信息
+   */
+  processFiles: (params) => ipcRenderer.invoke('process-files', params),
+
+  /**
+   * 导出结果
+   * 将处理结果导出为 CSV 格式的报告文件
+   * 
+   * @param {Array} results - 处理结果数组
+   * @param {string} outputPath - 输出目录路径
+   * @returns {Promise<string>} 生成的报告文件路径
+   */
   exportResults: (results, outputPath) => ipcRenderer.invoke('export-results', results, outputPath),
-  compressImage: (options) => ipcRenderer.invoke('compress-image', options),
-  compressImagesBatch: (options) => ipcRenderer.invoke('compress-images-batch', options)
+
+  /**
+   * 压缩图片（批量）
+   * 批量压缩图片文件，支持多线程处理
+   * 
+   * @param {Object} params - 压缩参数对象
+   * @param {Array} params.imageTasks - 图片任务数组
+   * @param {number} params.maxDimension - 最大尺寸限制
+   * @param {boolean} params.useMultiThread - 是否使用多线程
+   * @returns {Promise<Object>} 压缩结果和统计信息
+   */
+  compressImagesBatch: (params) => ipcRenderer.invoke('compress-images-batch', params),
+
+  /**
+   * 压缩图片（单张）
+   * 压缩单张图片文件（保持向后兼容性）
+   * 
+   * @param {Object} params - 压缩参数对象
+   * @param {string} params.inputPath - 输入图片路径
+   * @param {string} params.outputPath - 输出图片路径
+   * @param {number} params.maxDimension - 最大尺寸限制
+   * @returns {Promise<Object>} 压缩结果
+   */
+  compressImage: (params) => ipcRenderer.invoke('compress-image', params),
+
+  /**
+   * 预览文件变更
+   * 在渲染进程中安全地预览文件重命名结果，避免使用 Node.js 模块
+   * 
+   * @param {Object} params - 预览参数对象
+   * @param {Array} params.files - 文件路径数组
+   * @param {Array} params.mapping - 文件名映射数组
+   * @param {string} params.outputPath - 输出目录路径
+   * @returns {Promise<Object>} 预览结果和统计信息
+   */
+  previewFileChanges: (params) => ipcRenderer.invoke('preview-file-changes', params)
 })
