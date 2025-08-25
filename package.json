@@ -8,8 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron": "wait-on tcp:5173 && cross-env IS_DEV=true electron .",
-    "electron:dev": "concurrently \"npm run dev\" \"npm run electron\"",
+    "electron:dev": "vite",
+    "electron:dev:fallback": "concurrently \"npm run dev\" \"wait-on tcp:5173 && cross-env IS_DEV=true electron .\"",
     "electron:build": "npm run build && electron-builder",
     "dist": "npm run build && electron-builder --publish=never"
   },

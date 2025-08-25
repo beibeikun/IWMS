@@ -12,7 +12,8 @@ let mainWindow
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 1000,
+    show: false, // 延迟显示
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -22,12 +23,52 @@ function createWindow() {
     icon: path.join(__dirname, '../assets/icon.png')
   })
 
-  if (process.env.IS_DEV) {
+  // 检测是否为开发模式
+  const isDev = process.env.NODE_ENV === 'development' || 
+                 process.env.IS_DEV === 'true' || 
+                 !app.isPackaged
+
+  if (isDev) {
+    console.log('开发模式：连接到 Vite 开发服务器...')
     mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
+    
+    // 开发模式下打开开发者工具
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow.webContents.openDevTools()
+    })
   } else {
+    console.log('生产模式：加载本地文件...')
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
+
+  // 改进的窗口显示逻辑
+  mainWindow.once('ready-to-show', () => {
+    console.log('窗口准备就绪，显示窗口...')
+    mainWindow.show()
+    mainWindow.focus()
+  })
+
+  // 添加错误处理
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('页面加载失败:', errorCode, errorDescription, validatedURL)
+    
+    if (isDev) {
+      // 开发模式下，如果加载失败，等待一段时间后重试
+      setTimeout(() => {
+        console.log('尝试重新加载开发服务器...')
+        mainWindow.loadURL('http://localhost:5173')
+      }, 2000)
+    }
+  })
+
+  // 添加加载状态监听
+  mainWindow.webContents.on('did-start-loading', () => {
+    console.log('开始加载页面...')
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('页面加载完成')
+  })
 }
 
 app.whenReady().then(createWindow)

@@ -10,6 +10,9 @@ export default defineConfig({
       {
         entry: 'electron/main.js',
         onstart(options) {
+          // 设置开发环境变量
+          process.env.NODE_ENV = 'development'
+          process.env.IS_DEV = 'true'
           options.startup()
         },
         vite: {
@@ -38,5 +41,14 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    host: true, // 允许外部访问
   },
+  // 确保开发模式正确启动
+  optimizeDeps: {
+    exclude: ['electron']
+  },
+  // 设置环境变量
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+  }
 })

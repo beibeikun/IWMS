@@ -8,6 +8,11 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
+# 清理之前的构建
+echo "清理之前的构建..."
+rm -rf dist dist-electron
+
 # 启动开发模式
 echo "启动Electron开发模式..."
+echo "请等待 Vite 开发服务器启动完成后再操作..."
 npm run electron:dev
