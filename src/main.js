@@ -5,6 +5,7 @@
  * - 创建 Vue 应用实例
  * - 集成 Element Plus UI 组件库
  * - 注册全局图标组件
+ * - 配置 Vue Router
  * - 挂载应用到 DOM
  * 
  * @author IWMS Team
@@ -19,6 +20,8 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 // 导入所有 Element Plus 图标组件
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+// 导入路由配置
+import router from './router'
 // 导入根组件
 import App from './App.vue'
 
@@ -34,6 +37,9 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 // 使用 Element Plus 插件
 // 这会自动注册所有 Element Plus 组件
 app.use(ElementPlus)
+
+// 使用 Vue Router
+app.use(router)
 
 // 将应用挂载到 DOM 元素上
 // 目标元素是 index.html 中 id 为 'app' 的 div
