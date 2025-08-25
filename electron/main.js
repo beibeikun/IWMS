@@ -13,7 +13,7 @@
  */
 
 // 导入 Electron 核心模块
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 // 导入 Node.js 核心模块
 const path = require('path')
 // 导入第三方依赖
@@ -365,15 +365,25 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
   // 确保输出目录存在
   await fs.ensureDir(outputPath)
   
+  // 将数组格式的映射转换为 Map 对象，确保兼容性
+  let mappingMap
+  if (Array.isArray(mapping)) {
+    mappingMap = new Map(mapping)
+  } else if (mapping instanceof Map) {
+    mappingMap = mapping
+  } else {
+    throw new Error('映射数据格式无效，期望数组或 Map 对象')
+  }
+  
   // 遍历处理每个文件
   for (const filePath of files) {
     try {
       const fileName = path.basename(filePath)      // 获取文件名
       const { base, sequence, extension } = parseFileName(fileName)  // 解析文件名
       
-      if (mapping.has(base)) {
+      if (mappingMap.has(base)) {
         // 如果文件名在映射表中，进行重命名处理
-        const newBase = mapping.get(base)           // 获取新文件名
+        const newBase = mappingMap.get(base)           // 获取新文件名
         let newFileName = newBase
         
         // 保持原有的编号和扩展名
@@ -387,10 +397,12 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
         
         const outputFilePath = path.join(outputPath, newFileName)
         
+        // 初始化最终输出路径
+        let finalOutputPath = outputFilePath
+        
         // 检查文件名冲突
         if (await fs.pathExists(outputFilePath)) {
           conflictCount++
-          let finalOutputPath = outputFilePath
           
           if (conflictStrategy === 'append') {
             // 冲突策略：追加标识符
@@ -413,7 +425,7 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
             skippedCount++
             continue
           }
-          // 如果conflictStrategy是'overwrite'，直接使用原路径
+          // 如果conflictStrategy是'overwrite'，finalOutputPath 保持为 outputFilePath
         }
         
         // 检查是否为图片文件且需要压缩
@@ -424,16 +436,16 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
           // 收集图片压缩任务，稍后批量处理
           imageCompressionTasks.push({
             inputPath: filePath,
-            outputPath: finalOutputPath || outputFilePath,
+            outputPath: finalOutputPath,
             fileName: fileName
           })
         } else {
           // 直接复制文件
-          await fs.copy(filePath, finalOutputPath || outputFilePath)
+          await fs.copy(filePath, finalOutputPath)
           results.push({
             sourcePath: filePath,
             originalName: fileName,
-            newName: path.basename(finalOutputPath || outputFilePath),
+            newName: path.basename(finalOutputPath),
             status: 'success',
             message: ''
           })
@@ -468,7 +480,9 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
   if (imageCompressionTasks.length > 0) {
     try {
       const compressionStartTime = Date.now()
-      const compressionResult = await ipcMain.handlers['compress-images-batch'](undefined, {
+      
+      // 直接调用压缩函数，而不是通过 ipcMain.handlers
+      const compressionResult = await compressImagesBatch({
         imageTasks: imageCompressionTasks,
         maxDimension: maxDimension,
         useMultiThread: true
@@ -620,19 +634,18 @@ ipcMain.handle('export-results', async (event, results, outputPath) => {
 })
 
 /**
- * 多线程图片压缩功能
+ * 批量压缩图片函数
  * 
  * 支持批量处理多张图片，可选择单线程或多线程模式
  * 多线程模式会根据 CPU 核心数自动调整线程数量
  * 
- * @param {Object} event - IPC 事件对象
  * @param {Object} params - 压缩参数
  * @param {Array} params.imageTasks - 图片任务数组
  * @param {number} params.maxDimension - 最大尺寸限制
  * @param {boolean} params.useMultiThread - 是否使用多线程
  * @returns {Object} 压缩结果和统计信息
  */
-ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension, useMultiThread = true }) => {
+async function compressImagesBatch({ imageTasks, maxDimension, useMultiThread = true }) {
   try {
     if (!maxDimension || maxDimension <= 0) {
       // 不压缩，直接复制所有文件
@@ -646,7 +659,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
           filePath: task.inputPath
         })
       }
-      return { results, totalTime: 0, threadsUsed: 1 }
+      return { success: true, results, totalTime: 0, threadsUsed: 1 }
     }
 
     if (!useMultiThread || imageTasks.length <= 2) {
@@ -704,7 +717,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
       }
       
       const totalTime = Date.now() - startTime
-      return { results, totalTime, threadsUsed: 1 }
+      return { success: true, results, totalTime, threadsUsed: 1 }
     }
 
     // 多线程处理：适用于大量文件的情况
@@ -823,7 +836,7 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
     }
     
     const totalTime = Date.now() - startTime
-    return { results, totalTime, threadsUsed: numThreads }
+    return { success: true, results, totalTime, threadsUsed: numThreads }
     
   } catch (error) {
     return { 
@@ -834,6 +847,23 @@ ipcMain.handle('compress-images-batch', async (event, { imageTasks, maxDimension
       threadsUsed: 0
     }
   }
+}
+
+/**
+ * 多线程图片压缩功能
+ * 
+ * 支持批量处理多张图片，可选择单线程或多线程模式
+ * 多线程模式会根据 CPU 核心数自动调整线程数量
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 压缩参数
+ * @param {Array} params.imageTasks - 图片任务数组
+ * @param {number} params.maxDimension - 最大尺寸限制
+ * @param {boolean} params.useMultiThread - 是否使用多线程
+ * @returns {Object} 压缩结果和统计信息
+ */
+ipcMain.handle('compress-images-batch', async (event, params) => {
+  return await compressImagesBatch(params)
 })
 
 /**
@@ -897,6 +927,41 @@ ipcMain.handle('compress-image', async (event, { inputPath, outputPath, maxDimen
       success: false, 
       compressed: false, 
       message: `压缩失败: ${error.message}` 
+    }
+  }
+})
+
+/**
+ * 打开文件夹
+ * 
+ * 使用系统默认的文件管理器打开指定路径的文件夹
+ * 支持跨平台（Windows、macOS、Linux）
+ * 
+ * @param {Object} event - IPC 事件对象
+ * @param {string} folderPath - 要打开的文件夹路径
+ * @returns {Object} 操作结果
+ */
+ipcMain.handle('open-folder', async (event, folderPath) => {
+  try {
+    // 检查路径是否存在
+    if (!await fs.pathExists(folderPath)) {
+      return { 
+        success: false, 
+        error: '文件夹路径不存在' 
+      }
+    }
+    
+    // 使用系统默认的文件管理器打开文件夹
+    await shell.openPath(folderPath)
+    
+    return { 
+      success: true, 
+      message: '文件夹已打开' 
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      error: `打开文件夹失败: ${error.message}` 
     }
   }
 })

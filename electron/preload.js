@@ -112,5 +112,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {string} params.outputPath - 输出目录路径
    * @returns {Promise<Object>} 预览结果和统计信息
    */
-  previewFileChanges: (params) => ipcRenderer.invoke('preview-file-changes', params)
+  previewFileChanges: (params) => ipcRenderer.invoke('preview-file-changes', params),
+
+  /**
+   * 打开文件夹
+   * 使用系统默认的文件管理器打开指定路径的文件夹
+   * 
+   * @param {string} folderPath - 要打开的文件夹路径
+   * @returns {Promise<Object>} 操作结果
+   */
+  openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath)
 })

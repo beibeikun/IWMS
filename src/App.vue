@@ -196,7 +196,7 @@
               </el-form-item>
               
               <el-form-item>
-                <el-button type="primary" @click="nextStep" :disabled="!form.inputPath">
+                <el-button type="primary" @click="nextStep" :disabled="!form.inputPath" class="next-step-btn">
                   下一步
                 </el-button>
               </el-form-item>
@@ -234,7 +234,7 @@
               
               <el-form-item>
                 <el-button @click="prevStep">上一步</el-button>
-                <el-button type="primary" @click="nextStep" :disabled="!form.outputPath">
+                <el-button type="primary" @click="nextStep" :disabled="!form.outputPath" class="next-step-btn">
                   下一步
                 </el-button>
               </el-form-item>
@@ -293,7 +293,7 @@
               
               <el-form-item>
                 <el-button @click="prevStep">上一步</el-button>
-                <el-button type="primary" @click="nextStep" :disabled="!form.excelPath || mappingData.length === 0">
+                <el-button type="primary" @click="nextStep" :disabled="!form.excelPath || mappingData.length === 0" class="next-step-btn">
                   下一步
                 </el-button>
               </el-form-item>
@@ -309,14 +309,30 @@
             </template>
             
             <div v-if="!previewResults.length">
-              <el-button type="primary" @click="previewChanges" :loading="previewLoading">
+              <el-alert
+                title="预览说明"
+                type="info"
+                :closable="false"
+                show-icon
+                class="preview-info"
+              >
+                <p>点击"预览变更"按钮可以预览文件重命名的结果，包括：</p>
+                <ul>
+                  <li>命中映射表的文件（将被重命名）</li>
+                  <li>跳过处理的文件（未命中映射表）</li>
+                  <li>冲突的文件（目标路径已存在）</li>
+                </ul>
+                <p>预览完成后，您可以重新预览或直接执行重命名操作。</p>
+              </el-alert>
+              
+              <el-button type="primary" @click="previewChanges" :loading="previewLoading" class="next-step-btn">
                 预览变更
               </el-button>
             </div>
             
             <div v-else>
               <el-alert
-                :title="`预览结果: 命中 ${summary.processed} 个文件，跳过 ${summary.skipped} 个文件`"
+                :title="`预览结果: 命中 ${summary.processed} 个文件，跳过 ${summary.skipped} 个文件${summary.conflicts > 0 ? `，冲突 ${summary.conflicts} 个文件` : ''}`"
                 type="success"
                 :closable="false"
                 show-icon
@@ -348,9 +364,23 @@
                 </el-tab-pane>
               </el-tabs>
               
-              <div style="margin-top: 20px; text-align: center;">
+              <!-- 重新预览说明 -->
+              <el-alert
+                title="重新预览说明"
+                type="info"
+                :closable="false"
+                show-icon
+                class="repreview-info"
+              >
+                <p>如果您修改了输入文件夹、输出路径、映射表或扫描设置，建议重新预览以确保结果准确。</p>
+              </el-alert>
+              
+              <div class="action-buttons">
                 <el-button @click="prevStep">上一步</el-button>
-                <el-button type="primary" @click="executeRename" :loading="executing">
+                <el-button type="info" @click="previewChanges" :loading="previewLoading" class="repreview-btn">
+                  重新预览变更
+                </el-button>
+                <el-button type="primary" @click="executeRename" :loading="executing" class="next-step-btn">
                   执行重命名
                 </el-button>
                 <el-button @click="exportPreviewResults">导出预览报告</el-button>
@@ -395,7 +425,7 @@
             </el-table>
             
             <div style="margin-top: 20px; text-align: center;">
-              <el-button type="success" @click="openOutputFolder">打开输出目录</el-button>
+              <el-button type="success" @click="openOutputFolder" class="output-folder-btn">打开输出目录</el-button>
               <el-button @click="exportExecutionResults">导出执行报告</el-button>
               <el-button @click="resetApp">重新开始</el-button>
             </div>
@@ -538,13 +568,25 @@ export default {
       try {
         previewLoading.value = true
         
+        // 判断是首次预览还是重新预览
+        const isRePreview = previewResults.value.length > 0
+        
         // 扫描文件
         const files = await window.electronAPI.scanFiles(form.inputPath, form.recursive, form.fileTypes)
+        
+        // 确保映射数据可以被序列化，转换为纯数组格式
+        const serializableMapping = mappingData.value.map(item => {
+          // 确保每个映射项都是简单的字符串数组
+          if (Array.isArray(item) && item.length >= 2) {
+            return [String(item[0] || ''), String(item[1] || '')]
+          }
+          return ['', '']
+        }).filter(item => item[0] && item[1]) // 过滤掉空的映射项
         
         // 使用新的 API 预览文件变更，避免在渲染进程中使用 Node.js 模块
         const previewResult = await window.electronAPI.previewFileChanges({
           files: files,
-          mapping: mappingData.value,
+          mapping: serializableMapping,
           outputPath: form.outputPath
         })
         
@@ -552,8 +594,14 @@ export default {
         previewResults.value = previewResult.results
         summary.value = previewResult.summary
         
-        ElMessage.success(`预览完成: 命中 ${previewResult.summary.processed} 个文件，跳过 ${previewResult.summary.skipped} 个文件${previewResult.summary.conflicts > 0 ? `，冲突 ${previewResult.summary.conflicts} 个文件` : ''}`)
+        // 根据是否是重新预览显示不同的提示信息
+        if (isRePreview) {
+          ElMessage.success(`重新预览完成: 命中 ${previewResult.summary.processed} 个文件，跳过 ${previewResult.summary.skipped} 个文件${previewResult.summary.conflicts > 0 ? `，冲突 ${previewResult.summary.conflicts} 个文件` : ''}`)
+        } else {
+          ElMessage.success(`预览完成: 命中 ${previewResult.summary.processed} 个文件，跳过 ${previewResult.summary.skipped} 个文件${previewResult.summary.conflicts > 0 ? `，冲突 ${previewResult.summary.conflicts} 个文件` : ''}`)
+        }
       } catch (error) {
+        console.error('预览失败详情:', error)
         ElMessage.error(`预览失败: ${error.message}`)
       } finally {
         previewLoading.value = false
@@ -564,12 +612,18 @@ export default {
       try {
         executing.value = true
         
-        const mappingMap = new Map(mappingData.value)
+        // 确保映射数据可以被序列化，转换为纯数组格式
+        const serializableMapping = mappingData.value.map(item => {
+          if (Array.isArray(item) && item.length >= 2) {
+            return [String(item[0] || ''), String(item[1] || '')]
+          }
+          return ['', '']
+        }).filter(item => item[0] && item[1])
         
         const result = await window.electronAPI.processFiles({
           inputPath: form.inputPath,
           outputPath: form.outputPath,
-          mapping: mappingMap,
+          mapping: serializableMapping,
           files: previewResults.value.filter(r => r.status === 'success').map(r => r.sourcePath),
           conflictStrategy: form.conflictStrategy,
           maxDimension: form.maxDimension
@@ -580,6 +634,7 @@ export default {
         
         ElMessage.success(`执行完成: 成功处理 ${result.summary.processed} 个文件`)
       } catch (error) {
+        console.error('执行失败详情:', error)
         ElMessage.error(`执行失败: ${error.message}`)
       } finally {
         executing.value = false
@@ -639,9 +694,24 @@ export default {
       return texts[status] || status
     }
     
-    const openOutputFolder = () => {
-      // 这里可以调用系统命令打开文件夹
-      ElMessage.info('请在文件管理器中手动打开输出目录')
+    const openOutputFolder = async () => {
+      try {
+        if (!form.outputPath) {
+          ElMessage.warning('请先选择输出文件夹')
+          return
+        }
+        
+        const result = await window.electronAPI.openFolder(form.outputPath)
+        
+        if (result.success) {
+          ElMessage.success(result.message)
+        } else {
+          ElMessage.error(result.error)
+        }
+      } catch (error) {
+        console.error('打开输出文件夹失败:', error)
+        ElMessage.error(`打开输出文件夹失败: ${error.message}`)
+      }
     }
     
     const exportPreviewResults = async () => {
@@ -1193,13 +1263,13 @@ body {
 
 .file-type-radio-group {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 16px;
   width: 100%;
 }
 
 .file-type-option {
-  width: 100%;
+  width: 50%;
   cursor: pointer;
   border: 2px solid #e4e7ed;
   border-radius: 8px;
@@ -1221,17 +1291,19 @@ body {
 
 .option-content {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
   padding: 16px;
+  text-align: center;
 }
 
 .option-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 8px;
   background: #e4e7ed;
   color: #606266;
@@ -1245,7 +1317,7 @@ body {
 }
 
 .option-icon .el-icon {
-  font-size: 20px;
+  font-size: 24px;
 }
 
 .option-text {
@@ -1257,12 +1329,12 @@ body {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   line-height: 1.2;
 }
 
 .option-description {
-  font-size: 14px;
+  font-size: 13px;
   color: #909399;
   line-height: 1.4;
 }
@@ -1271,13 +1343,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #e4e7ed;
   border: 2px solid #e4e7ed;
   transition: all 0.3s ease;
   flex-shrink: 0;
+  margin-top: 8px;
 }
 
 .file-type-option.is-selected .option-radio {
@@ -1286,8 +1359,8 @@ body {
 }
 
 .radio-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background-color: white;
   transition: all 0.3s ease;
@@ -1352,6 +1425,11 @@ body {
 
   .file-type-option {
     padding: 12px;
+    width: 100%;
+  }
+  
+  .file-type-radio-group {
+    flex-direction: column;
   }
   
   .option-content {
@@ -1383,5 +1461,157 @@ body {
     font-size: 11px;
     padding: 2px 6px;
   }
+}
+
+/* 按钮布局优化 */
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.action-buttons .el-button {
+  min-width: 120px;
+}
+
+/* 预览说明样式 */
+.preview-info {
+  margin-bottom: 20px;
+}
+
+.preview-info ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.preview-info li {
+  margin: 5px 0;
+  line-height: 1.5;
+}
+
+/* 重新预览说明样式 */
+.repreview-info {
+  margin-top: 20px;
+  background: #f0f9ff;
+  border: 1px solid #d1e7ff;
+}
+
+.repreview-info p {
+  margin: 8px 0;
+  line-height: 1.5;
+  color: #606266;
+}
+
+/* 输出目录按钮样式优化 */
+.output-folder-btn {
+  /* 确保文字颜色为纯白色，提高对比度 */
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.output-folder-btn:hover {
+  /* 悬停时保持文字清晰 */
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.output-folder-btn:active {
+  /* 点击时保持文字清晰 */
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* 如果 Element Plus 的默认样式覆盖了我们的样式，使用更强的选择器 */
+.el-button.output-folder-btn {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.el-button.output-folder-btn:hover {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.el-button.output-folder-btn:active {
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* 重新预览按钮样式优化 */
+.repreview-btn {
+  /* 确保文字颜色为深色，提高对比度 */
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.repreview-btn:hover {
+  /* 悬停时保持文字清晰 */
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.repreview-btn:active {
+  /* 点击时保持文字清晰 */
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* 如果 Element Plus 的默认样式覆盖了我们的样式，使用更强的选择器 */
+.el-button.repreview-btn {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.el-button.repreview-btn:hover {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.el-button.repreview-btn:active {
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* 下一步按钮样式优化 */
+.next-step-btn {
+  /* 确保文字颜色为纯白色，提高对比度 */
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.next-step-btn:hover {
+  /* 悬停时保持文字清晰 */
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.next-step-btn:active {
+  /* 点击时保持文字清晰 */
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* 如果 Element Plus 的默认样式覆盖了我们的样式，使用更强的选择器 */
+.el-button.next-step-btn {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.el-button.next-step-btn:hover {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.el-button.next-step-btn:active {
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
 }
 </style>
