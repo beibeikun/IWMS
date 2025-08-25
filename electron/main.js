@@ -109,7 +109,7 @@ function createWindow() {
     
     // 开发模式下打开开发者工具
     mainWindow.webContents.on('did-finish-load', () => {
-      mainWindow.webContents.openDevTools()
+    mainWindow.webContents.openDevTools()
     })
   } else {
     console.log('生产模式：加载本地文件...')
@@ -550,11 +550,11 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
             const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
             if (existingResultIndex !== -1) {
               results[existingResultIndex] = {
-                sourcePath: task.inputPath,
-                originalName: task.fileName,
-                newName: path.basename(task.outputPath),
-                status: 'success',
-                message: compressResult.message
+              sourcePath: task.inputPath,
+              originalName: task.fileName,
+              newName: path.basename(task.outputPath),
+              status: 'success',
+              message: compressResult.message
               }
             }
             
@@ -583,10 +583,10 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
             const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
             if (existingResultIndex !== -1) {
               results[existingResultIndex] = {
-                sourcePath: task.inputPath,
-                originalName: task.fileName,
-                newName: path.basename(task.outputPath),
-                status: 'success',
+            sourcePath: task.inputPath,
+            originalName: task.fileName,
+            newName: path.basename(task.outputPath),
+            status: 'success',
                 message: compressResult.message
               }
             }
@@ -1262,17 +1262,17 @@ ipcMain.handle('compress-image', async (event, { inputPath, outputPath, maxFileS
         // 如果尺寸太小，停止压缩
         if (width < 100 || height < 100) {
           break
-        }
       }
-      
-      // 压缩图片
-      await image
-        .resize(width, height, {
-          fit: 'inside',
-          withoutEnlargement: true
-        })
+    }
+    
+    // 压缩图片
+    await image
+      .resize(width, height, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
         .jpeg({ quality })
-        .toFile(outputPath)
+      .toFile(outputPath)
       
       // 检查压缩后的文件大小
       const compressedStats = await fs.stat(outputPath)

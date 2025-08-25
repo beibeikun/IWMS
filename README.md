@@ -19,6 +19,9 @@
 
 基于Electron和Vue 3构建的强大智能文件管理工具箱。目前包含IWMS核心功能，未来将扩展更多实用工具。
 
+开发阶段GUI预览图（预览图具有时效性，仅供参考）：
+![gui](public/GUI.png)
+
 ## ✨ 功能特性
 
 ### 🎯 IWMS核心功能
@@ -69,7 +72,7 @@
 ### 快速打包
 ```bash
 # 一键构建所有平台
-./build-all.sh
+./scripts/build-all.sh
 
 # 或使用npm命令
 npm run build:all
@@ -95,7 +98,7 @@ npm run build:linux      # 所有架构
 - **Windows**: NSIS安装程序 + 便携版
 - **Linux**: AppImage + DEB包
 
-详细说明请查看 [构建指南](BUILD_GUIDE.md) 和 [构建结果](BUILD_RESULTS.md)。
+详细说明请查看 [构建指南](docs/BUILD_GUIDE.md) 和 [构建结果](docs/BUILD_RESULTS.md)。
 
 ## 📖 文档
 
@@ -205,11 +208,6 @@ node iwms-demo.js
 - 在GitHub上开启issue
 - 查看 `docs/` 文件夹中的文档
 - 查看更新日志了解最新更新
-
-## ⭐ 星标历史
-
-[![Star History Chart](https://api.star-history.com/svg?repos=beibeikun/IWMS&type=Date)](https://star-history.com/#beibeikun/IWMS&Date)
-
 ---
 
-**由IWMS团队用心制作** ❤️
+**由北北昆用心制作** ❤️
