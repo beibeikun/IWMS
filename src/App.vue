@@ -1301,7 +1301,7 @@ body {
 }
 
 .file-type-option {
-  width: 50%;
+  flex: 1;
   cursor: pointer;
   border: 2px solid #e4e7ed;
   border-radius: 8px;
@@ -1323,20 +1323,20 @@ body {
 
 .option-content {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
-  padding: 16px;
-  text-align: center;
+  padding: 12px;
+  text-align: left;
 }
 
 .option-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   background: #e4e7ed;
   color: #606266;
   transition: all 0.3s ease;
@@ -1349,7 +1349,7 @@ body {
 }
 
 .option-icon .el-icon {
-  font-size: 24px;
+  font-size: 16px;
 }
 
 .option-text {
@@ -1358,15 +1358,15 @@ body {
 }
 
 .option-label {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   line-height: 1.2;
 }
 
 .option-description {
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
   line-height: 1.4;
 }
@@ -1375,14 +1375,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #e4e7ed;
   border: 2px solid #e4e7ed;
   transition: all 0.3s ease;
   flex-shrink: 0;
-  margin-top: 8px;
 }
 
 .file-type-option.is-selected .option-radio {
@@ -1391,8 +1390,8 @@ body {
 }
 
 .radio-dot {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background-color: white;
   transition: all 0.3s ease;
@@ -1456,33 +1455,34 @@ body {
   }
 
   .file-type-option {
-    padding: 12px;
-    width: 100%;
+    padding: 8px;
   }
   
   .file-type-radio-group {
     flex-direction: column;
+    gap: 8px;
   }
   
   .option-content {
     gap: 8px;
+    padding: 8px;
   }
   
   .option-icon {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
   
   .option-icon .el-icon {
-    font-size: 16px;
-  }
-  
-  .option-label {
     font-size: 14px;
   }
   
+  .option-label {
+    font-size: 13px;
+  }
+  
   .option-description {
-    font-size: 12px;
+    font-size: 11px;
   }
   
   .format-tags {
