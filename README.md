@@ -64,6 +64,39 @@
    npm run electron:build
    ```
 
+## 🚀 应用打包
+
+### 快速打包
+```bash
+# 一键构建所有平台
+./build-all.sh
+
+# 或使用npm命令
+npm run build:all
+```
+
+### 平台特定打包
+```bash
+# macOS应用
+npm run build:mac-arm    # ARM64 (Apple Silicon)
+npm run build:mac-x64    # x64 (Intel)
+
+# Windows应用
+npm run build:win-x64    # x64 + ia32
+npm run build:win-ia32   # 仅ia32
+
+# Linux应用
+npm run build:linux      # 所有架构
+```
+
+### 构建输出
+构建完成后，应用将在 `release/` 目录中：
+- **macOS**: DMG安装包 + ZIP压缩包
+- **Windows**: NSIS安装程序 + 便携版
+- **Linux**: AppImage + DEB包
+
+详细说明请查看 [构建指南](BUILD_GUIDE.md) 和 [构建结果](BUILD_RESULTS.md)。
+
 ## 📖 文档
 
 ### 📚 中文文档

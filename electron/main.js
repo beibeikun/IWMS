@@ -16,11 +16,55 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 // 导入 Node.js 核心模块
 const path = require('path')
+
 // 导入第三方依赖
 const fs = require('fs-extra')           // 增强的文件系统操作
 const XLSX = require('xlsx')            // Excel 文件处理
 const glob = require('fast-glob')       // 快速文件匹配
-const sharp = require('sharp')          // 图片处理库
+
+// Windows 平台 Sharp 模块特殊处理
+let sharp
+try {
+  // 尝试直接加载 Sharp
+  sharp = require('sharp')
+  console.log('✅ Sharp 模块加载成功')
+} catch (error) {
+  console.error('❌ Sharp 模块加载失败:', error.message)
+  
+  // 如果是 Windows 平台，尝试特殊处理
+  if (process.platform === 'win32') {
+    try {
+      // 设置 Sharp 环境变量
+      process.env.SHARP_DIST_BASE_URL = 'https://github.com/lovell/sharp-libvips/releases/download/v8.17.1/'
+      process.env.SHARP_IGNORE_GLOBAL_LIBVIPS = '1'
+      
+      // 重新尝试加载
+      sharp = require('sharp')
+      console.log('✅ Windows Sharp 模块加载成功')
+    } catch (winError) {
+      console.error('❌ Windows Sharp 模块加载失败:', winError.message)
+      // 如果还是失败，创建一个模拟的 Sharp 对象
+      sharp = {
+        versions: { sharp: '0.34.3' },
+        format: {},
+        // 添加基本的错误处理方法
+        resize: () => ({ toBuffer: () => Promise.reject(new Error('Sharp not available')) }),
+        png: () => ({ toBuffer: () => Promise.reject(new Error('Sharp not available')) }),
+        jpeg: () => ({ toBuffer: () => Promise.reject(new Error('Sharp not available')) })
+      }
+    }
+  } else {
+    // 非 Windows 平台，创建模拟对象
+    sharp = {
+      versions: { sharp: '0.34.3' },
+      format: {},
+      resize: () => ({ toBuffer: () => Promise.reject(new Error('Sharp not available')) }),
+      png: () => ({ toBuffer: () => Promise.reject(new Error('Sharp not available')) }),
+      jpeg: () => ({ toBuffer: () => Promise.reject(new Error('Sharp not available')) })
+    }
+  }
+}
+
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads')  // 多线程支持
 const os = require('os')                // 操作系统信息
 
