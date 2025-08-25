@@ -179,7 +179,17 @@
                 </div>
               </el-form-item>
               
-              <el-form-item label="图片压缩:">
+              <el-form-item label="压缩模式:">
+                <el-radio-group v-model="form.compressionMode">
+                  <el-radio label="dimension">最长边模式</el-radio>
+                  <el-radio label="filesize">最大体积模式</el-radio>
+                </el-radio-group>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  最长边模式：按像素压缩，保持宽高比；最大体积模式：按文件大小压缩
+                </div>
+              </el-form-item>
+              
+              <el-form-item label="图片压缩:" v-if="form.compressionMode === 'dimension'">
                 <el-input-number 
                   v-model="form.maxDimension" 
                   :min="0" 
@@ -192,6 +202,22 @@
                 </el-input-number>
                 <div style="margin-top: 5px; color: #909399; font-size: 12px;">
                   例如: 1920 (保持宽高比，不输入则不压缩)
+                </div>
+              </el-form-item>
+              
+              <el-form-item label="图片压缩:" v-if="form.compressionMode === 'filesize'">
+                <el-input-number 
+                  v-model="form.maxFileSize" 
+                  :min="0" 
+                  :max="10000"
+                  placeholder="输入目标文件大小，0表示不压缩"
+                  style="width: 100%"
+                >
+                  <template #prepend>目标大小</template>
+                  <template #append>KB</template>
+                </el-input-number>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  例如: 500 (压缩到500KB以下，0表示不压缩)
                 </div>
               </el-form-item>
               
@@ -481,8 +507,10 @@ export default {
       excelPath: '',
       recursive: false,
       fileTypes: 'image',
-      maxDimension: 0,
-      conflictStrategy: 'skip'
+      maxFileSize: 0,
+      conflictStrategy: 'skip',
+      compressionMode: 'dimension', // 新增压缩模式
+      maxDimension: 0 // 新增最长边像素
     })
     
     const mappingData = ref([])
@@ -626,7 +654,9 @@ export default {
           mapping: serializableMapping,
           files: previewResults.value.filter(r => r.status === 'success').map(r => r.sourcePath),
           conflictStrategy: form.conflictStrategy,
-          maxDimension: form.maxDimension
+          maxFileSize: form.maxFileSize,
+          compressionMode: form.compressionMode, // 传递压缩模式
+          maxDimension: form.maxDimension // 传递最长边像素
         })
         
         executionResults.value = result.results
@@ -739,7 +769,9 @@ export default {
       form.excelPath = ''
       form.recursive = false
       form.fileTypes = 'image'
-      form.maxDimension = 0
+      form.maxFileSize = 0
+      form.compressionMode = 'dimension' // 重置压缩模式
+      form.maxDimension = 0 // 重置最长边像素
       mappingData.value = []
       mappingErrors.value = []
       previewResults.value = []

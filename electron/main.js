@@ -333,23 +333,21 @@ ipcMain.handle('scan-files', async (event, inputPath, recursive = false, fileTyp
 /**
  * 处理文件批量操作
  * 
- * 主要功能：
- * - 根据映射表重命名文件
- * - 处理文件名冲突
- * - 图片压缩处理
- * - 多线程批量处理
+ * 支持文件重命名、冲突处理、图片压缩等功能
  * 
  * @param {Object} event - IPC 事件对象
- * @param {Object} params - 处理参数
- * @param {string} params.inputPath - 输入目录
- * @param {string} params.outputPath - 输出目录
+ * @param {Object} params - 处理参数对象
+ * @param {string} params.inputPath - 输入目录路径
+ * @param {string} params.outputPath - 输出目录路径
  * @param {Map} params.mapping - 文件名映射表
  * @param {Array} params.files - 要处理的文件列表
  * @param {string} params.conflictStrategy - 冲突处理策略
- * @param {number} params.maxDimension - 图片最大尺寸
+ * @param {string} params.compressionMode - 压缩模式：'dimension' 或 'filesize'
+ * @param {number} params.maxDimension - 最长边像素数（dimension模式）
+ * @param {number} params.maxFileSize - 最大文件大小KB（filesize模式）
  * @returns {Object} 处理结果和统计信息
  */
-ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, files, conflictStrategy, maxDimension }) => {
+ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, files, conflictStrategy, compressionMode, maxDimension, maxFileSize }) => {
   const results = []                    // 存储每个文件的处理结果
   let processedCount = 0               // 成功处理的文件数
   let skippedCount = 0                 // 跳过的文件数
@@ -432,15 +430,26 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
         const isImage = imageExtensions.includes(extension?.toLowerCase())
         
-        if (isImage && maxDimension && maxDimension > 0) {
-          // 收集图片压缩任务，稍后批量处理
+        if (isImage) {
+          // 图片文件，添加到压缩任务中
           imageCompressionTasks.push({
             inputPath: filePath,
             outputPath: finalOutputPath,
-            fileName: fileName
+            fileName: fileName,
+            maxDimension: maxDimension,
+            maxFileSize: maxFileSize
+          })
+          
+          // 先添加一个占位结果，稍后会被压缩结果替换
+          results.push({
+            sourcePath: filePath,
+            originalName: fileName,
+            newName: path.basename(finalOutputPath),
+            status: 'pending', // 标记为待处理
+            message: '等待压缩处理'
           })
         } else {
-          // 直接复制文件
+          // 非图片文件，直接复制
           await fs.copy(filePath, finalOutputPath)
           results.push({
             sourcePath: filePath,
@@ -476,63 +485,75 @@ ipcMain.handle('process-files', async (event, { inputPath, outputPath, mapping, 
     }
   }
   
-  // 批量处理图片压缩任务
+  // 处理图片压缩任务
   if (imageCompressionTasks.length > 0) {
-    try {
-      const compressionStartTime = Date.now()
-      
-      // 直接调用压缩函数，而不是通过 ipcMain.handlers
-      const compressionResult = await compressImagesBatch({
+    const startTime = Date.now()
+    
+    if (compressionMode === 'dimension') {
+      // 按尺寸压缩模式
+      const compressionResult = await compressImagesBatchByDimension({
         imageTasks: imageCompressionTasks,
         maxDimension: maxDimension,
         useMultiThread: true
       })
       
       if (compressionResult.success) {
-        // 将压缩结果添加到results中
+        // 将压缩结果转换为正确的格式，并替换占位结果
         for (const compressResult of compressionResult.results) {
           const task = imageCompressionTasks.find(t => t.inputPath === compressResult.filePath)
           if (task) {
-            results.push({
-              sourcePath: task.inputPath,
-              originalName: task.fileName,
-              newName: path.basename(task.outputPath),
-              status: 'success',
-              message: compressResult.message
-            })
+            // 找到对应的占位结果并替换
+            const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
+            if (existingResultIndex !== -1) {
+              results[existingResultIndex] = {
+                sourcePath: task.inputPath,
+                originalName: task.fileName,
+                newName: path.basename(task.outputPath),
+                status: 'success',
+                message: compressResult.message
+              }
+            }
             
             if (compressResult.compressed) {
               compressedCount++
             }
           }
         }
-        
         compressionTime = compressionResult.totalTime
         threadsUsed = compressionResult.threadsUsed
-      } else {
-        // 压缩失败，回退到复制
-        for (const task of imageCompressionTasks) {
-          await fs.copy(task.inputPath, task.outputPath)
-          results.push({
-            sourcePath: task.inputPath,
-            originalName: task.fileName,
-            newName: path.basename(task.outputPath),
-            status: 'success',
-            message: '批量压缩失败，已复制原文件'
-          })
-        }
       }
-    } catch (error) {
-      // 压缩出错，回退到复制
-      for (const task of imageCompressionTasks) {
-        await fs.copy(task.inputPath, task.outputPath)
-        results.push({
-          sourcePath: task.inputPath,
-          originalName: task.fileName,
-          newName: path.basename(task.outputPath),
-          status: 'success',
-          message: `压缩出错，已复制原文件: ${error.message}`
-        })
+    } else if (compressionMode === 'filesize') {
+      // 按文件大小压缩模式
+      const compressionResult = await compressImagesBatch({
+        imageTasks: imageCompressionTasks,
+        maxFileSize: maxFileSize,
+        useMultiThread: true
+      })
+      
+      if (compressionResult.success) {
+        // 将压缩结果转换为正确的格式，并替换占位结果
+        for (const compressResult of compressionResult.results) {
+          const task = imageCompressionTasks.find(t => t.inputPath === compressResult.filePath)
+          if (task) {
+            // 找到对应的占位结果并替换
+            const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
+            if (existingResultIndex !== -1) {
+              results[existingResultIndex] = {
+                sourcePath: task.inputPath,
+                originalName: task.fileName,
+                newName: path.basename(task.outputPath),
+                status: 'success',
+                message: compressResult.message
+              }
+            }
+            
+            if (compressResult.compressed) {
+              compressedCount++
+            }
+          }
+        }
+        compressionTime = compressionResult.totalTime
+        threadsUsed = compressionResult.threadsUsed
       }
     }
   }
@@ -634,18 +655,295 @@ ipcMain.handle('export-results', async (event, results, outputPath) => {
 })
 
 /**
- * 批量压缩图片函数
+ * 批量图片压缩功能（按文件体积压缩）
  * 
  * 支持批量处理多张图片，可选择单线程或多线程模式
  * 多线程模式会根据 CPU 核心数自动调整线程数量
  * 
  * @param {Object} params - 压缩参数
  * @param {Array} params.imageTasks - 图片任务数组
- * @param {number} params.maxDimension - 最大尺寸限制
+ * @param {number} params.maxFileSize - 最大文件大小（KB）
  * @param {boolean} params.useMultiThread - 是否使用多线程
  * @returns {Object} 压缩结果和统计信息
  */
-async function compressImagesBatch({ imageTasks, maxDimension, useMultiThread = true }) {
+async function compressImagesBatch({ imageTasks, maxFileSize, useMultiThread = true }) {
+  try {
+    if (!maxFileSize || maxFileSize <= 0) {
+      // 不压缩，直接复制所有文件
+      const results = []
+      for (const task of imageTasks) {
+        await fs.copy(task.inputPath, task.outputPath)
+        results.push({
+          success: true,
+          compressed: false,
+          originalSize: { width: 0, height: 0, sizeKB: 0 }, // 无图片信息
+          newSize: { width: 0, height: 0, sizeKB: 0 }, // 无图片信息
+          message: '未压缩，直接复制',
+          filePath: task.inputPath
+        })
+      }
+      return { success: true, results, totalTime: 0, threadsUsed: 1 }
+    }
+
+    if (!useMultiThread || imageTasks.length <= 2) {
+      // 单线程处理：适用于少量文件或禁用多线程的情况
+      const startTime = Date.now()
+      const results = []
+      
+      for (const task of imageTasks) {
+        try {
+          // 获取原文件大小
+          const originalStats = await fs.stat(task.inputPath)
+          const originalSizeKB = Math.round(originalStats.size / 1024)
+          
+          // 如果原文件已经小于目标大小，直接复制
+          if (originalSizeKB <= maxFileSize) {
+            await fs.copy(task.inputPath, task.outputPath)
+            results.push({
+              success: true,
+              compressed: false,
+              originalSize: { width: 0, height: 0, sizeKB: originalSizeKB },
+              newSize: { width: 0, height: 0, sizeKB: originalSizeKB },
+              message: `文件已小于目标大小(${maxFileSize}KB)，无需压缩`,
+              filePath: task.inputPath
+            })
+            continue
+          }
+
+          const image = sharp(task.inputPath)
+          const metadata = await image.metadata()
+          
+          let { width, height } = metadata
+          let quality = 85
+          let compressedSizeKB = originalSizeKB
+          
+          // 逐步调整质量和尺寸，直到文件大小符合要求
+          while (compressedSizeKB > maxFileSize && quality > 10) {
+            // 如果质量已经很低，开始缩小尺寸
+            if (quality <= 30) {
+              width = Math.round(width * 0.9)
+              height = Math.round(height * 0.9)
+              // 如果尺寸太小，停止压缩
+              if (width < 100 || height < 100) {
+                break
+              }
+            }
+            
+            // 压缩图片：调整尺寸并转换为 JPEG 格式
+            await image
+              .resize(width, height, {
+                fit: 'inside',             // 保持宽高比，不放大
+                withoutEnlargement: true   // 不放大图片
+              })
+              .jpeg({ quality })          // 转换为 JPEG，动态调整质量
+              .toFile(task.outputPath)
+            
+            // 检查压缩后的文件大小
+            const compressedStats = await fs.stat(task.outputPath)
+            compressedSizeKB = Math.round(compressedStats.size / 1024)
+            
+            // 如果还是太大，降低质量
+            if (compressedSizeKB > maxFileSize) {
+              quality -= 5
+            }
+          }
+          
+          results.push({
+            success: true,
+            compressed: true,
+            originalSize: { width: metadata.width, height: metadata.height, sizeKB: originalSizeKB },
+            newSize: { width, height, sizeKB: compressedSizeKB },
+            message: `压缩完成: ${originalSizeKB}KB → ${compressedSizeKB}KB (${width}x${height}, 质量:${quality}%)`,
+            filePath: task.inputPath
+          })
+        } catch (error) {
+          // 压缩失败，回退到复制
+          await fs.copy(task.inputPath, task.outputPath)
+          results.push({
+            success: true,
+            compressed: false,
+            message: `压缩失败，已复制原文件: ${error.message}`,
+            filePath: task.inputPath
+          })
+        }
+      }
+      
+      const totalTime = Date.now() - startTime
+      return { success: true, results, totalTime, threadsUsed: 1 }
+    }
+
+    // 多线程处理：适用于大量文件的情况
+    const startTime = Date.now()
+    const numThreads = Math.min(os.cpus().length, imageTasks.length, 8) // 最多8个线程
+    const results = []
+    
+    // 将任务分配给多个线程
+    const tasksPerThread = Math.ceil(imageTasks.length / numThreads)
+    const workerPromises = []
+    
+    for (let i = 0; i < numThreads; i++) {
+      const startIndex = i * tasksPerThread
+      const endIndex = Math.min(startIndex + tasksPerThread, imageTasks.length)
+      const threadTasks = imageTasks.slice(startIndex, endIndex)
+      
+      if (threadTasks.length > 0) {
+        const workerPromise = new Promise((resolve, reject) => {
+          // 创建 Worker 线程处理图片压缩
+          const worker = new Worker(`
+            const { parentPort, workerData } = require('worker_threads');
+            const sharp = require('sharp');
+            const fs = require('fs-extra');
+            
+            async function compressImages(tasks, maxFileSize) {
+              const results = [];
+              
+              for (const task of tasks) {
+                try {
+                  const image = sharp(task.inputPath);
+                  const metadata = await image.metadata();
+                  
+                  let { width, height } = metadata;
+                  
+                  // 获取原文件大小
+                  const originalStats = await fs.stat(task.inputPath);
+                  const originalSizeKB = Math.round(originalStats.size / 1024);
+                  
+                  // 如果原文件已经小于目标大小，直接复制
+                  if (originalSizeKB <= maxFileSize) {
+                    await fs.copy(task.inputPath, task.outputPath);
+                    results.push({
+                      success: true,
+                      compressed: false,
+                      originalSize: { width: 0, height: 0, sizeKB: originalSizeKB },
+                      newSize: { width: 0, height: 0, sizeKB: originalSizeKB },
+                      message: \`文件已小于目标大小(\${maxFileSize}KB)，无需压缩\`,
+                      filePath: task.inputPath
+                    });
+                    continue;
+                  }
+
+                  let quality = 85;
+                  let compressedSizeKB = originalSizeKB;
+                  
+                  // 逐步调整质量和尺寸，直到文件大小符合要求
+                  while (compressedSizeKB > maxFileSize && quality > 10) {
+                    // 如果质量已经很低，开始缩小尺寸
+                    if (quality <= 30) {
+                      width = Math.round(width * 0.9);
+                      height = Math.round(height * 0.9);
+                      // 如果尺寸太小，停止压缩
+                      if (width < 100 || height < 100) {
+                        break;
+                      }
+                    }
+                    
+                    // 压缩图片：调整尺寸并转换为 JPEG 格式
+                    await image
+                      .resize(width, height, {
+                        fit: 'inside',             // 保持宽高比，不放大
+                        withoutEnlargement: true   // 不放大图片
+                      })
+                      .jpeg({ quality })          // 转换为 JPEG，动态调整质量
+                      .toFile(task.outputPath);
+                    
+                    // 检查压缩后的文件大小
+                    const compressedStats = await fs.stat(task.outputPath);
+                    compressedSizeKB = Math.round(compressedStats.size / 1024);
+                    
+                    // 如果还是太大，降低质量
+                    if (compressedSizeKB > maxFileSize) {
+                      quality -= 5;
+                    }
+                  }
+                  
+                  results.push({
+                    success: true,
+                    compressed: true,
+                    originalSize: { width: metadata.width, height: metadata.height, sizeKB: originalSizeKB },
+                    newSize: { width, height, sizeKB: compressedSizeKB },
+                    message: \`压缩完成: \${originalSizeKB}KB → \${compressedSizeKB}KB (\${width}x\${height}, 质量:\${quality}%)\`,
+                    filePath: task.inputPath
+                  });
+                } catch (error) {
+                  // 压缩失败，回退到复制
+                  await fs.copy(task.inputPath, task.outputPath);
+                  results.push({
+                    success: true,
+                    compressed: false,
+                    message: \`压缩失败，已复制原文件: \${error.message}\`,
+                    filePath: task.inputPath
+                  });
+                }
+              }
+              
+              return results;
+            }
+            
+            compressImages(workerData.tasks, workerData.maxFileSize)
+              .then(results => parentPort.postMessage(results))
+              .catch(error => parentPort.postMessage({ error: error.message }));
+          `, {
+            eval: true,
+            workerData: { tasks: threadTasks, maxFileSize }
+          });
+          
+          // 处理 Worker 消息
+          worker.on('message', (message) => {
+            if (message.error) {
+              reject(new Error(message.error));
+            } else {
+              resolve(message);
+            }
+            worker.terminate();
+          });
+          
+          worker.on('error', reject);
+          worker.on('exit', (code) => {
+            if (code !== 0) {
+              reject(new Error(`Worker stopped with exit code ${code}`));
+            }
+          });
+        });
+        
+        workerPromises.push(workerPromise);
+      }
+    }
+    
+    // 等待所有线程完成
+    const threadResults = await Promise.all(workerPromises);
+    
+    // 合并所有线程的结果
+    for (const threadResult of threadResults) {
+      results.push(...threadResult);
+    }
+    
+    const totalTime = Date.now() - startTime
+    return { success: true, results, totalTime, threadsUsed: numThreads }
+    
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error.message,
+      results: [],
+      totalTime: 0,
+      threadsUsed: 0
+    }
+  }
+}
+
+/**
+ * 批量图片压缩功能（按尺寸压缩）
+ * 
+ * 支持批量处理多张图片，可选择单线程或多线程模式
+ * 多线程模式会根据 CPU 核心数自动调整线程数量
+ * 
+ * @param {Object} params - 压缩参数
+ * @param {Array} params.imageTasks - 图片任务数组
+ * @param {number} params.maxDimension - 最大尺寸限制（像素）
+ * @param {boolean} params.useMultiThread - 是否使用多线程
+ * @returns {Object} 压缩结果和统计信息
+ */
+async function compressImagesBatchByDimension({ imageTasks, maxDimension, useMultiThread = true }) {
   try {
     if (!maxDimension || maxDimension <= 0) {
       // 不压缩，直接复制所有文件
@@ -765,13 +1063,13 @@ async function compressImagesBatch({ imageTasks, maxDimension, useMultiThread = 
                     }
                   }
                   
-                  // 压缩图片
+                  // 压缩图片：调整尺寸并转换为 JPEG 格式
                   await image
                     .resize(width, height, {
-                      fit: 'inside',
-                      withoutEnlargement: true
+                      fit: 'inside',             // 保持宽高比，不放大
+                      withoutEnlargement: true   // 不放大图片
                     })
-                    .jpeg({ quality: 85 })
+                    .jpeg({ quality: 85 })      // 转换为 JPEG，质量 85%
                     .toFile(task.outputPath);
                   
                   results.push({
@@ -867,7 +1165,7 @@ ipcMain.handle('compress-images-batch', async (event, params) => {
 })
 
 /**
- * 单张图片压缩功能（保持兼容性）
+ * 单张图片压缩功能（按文件体积压缩）
  * 
  * 这是为了保持向后兼容性而保留的接口
  * 新代码建议使用 compress-images-batch 进行批量处理
@@ -876,15 +1174,31 @@ ipcMain.handle('compress-images-batch', async (event, params) => {
  * @param {Object} params - 压缩参数
  * @param {string} params.inputPath - 输入图片路径
  * @param {string} params.outputPath - 输出图片路径
- * @param {number} params.maxDimension - 最大尺寸限制
+ * @param {number} params.maxFileSize - 最大文件大小（KB）
  * @returns {Object} 压缩结果
  */
-ipcMain.handle('compress-image', async (event, { inputPath, outputPath, maxDimension }) => {
+ipcMain.handle('compress-image', async (event, { inputPath, outputPath, maxFileSize }) => {
   try {
-    if (!maxDimension || maxDimension <= 0) {
+    if (!maxFileSize || maxFileSize <= 0) {
       // 不压缩，直接复制
       await fs.copy(inputPath, outputPath)
       return { success: true, compressed: false, message: '未压缩，直接复制' }
+    }
+
+    // 获取原文件大小
+    const originalStats = await fs.stat(inputPath)
+    const originalSizeKB = Math.round(originalStats.size / 1024)
+    
+    // 如果原文件已经小于目标大小，直接复制
+    if (originalSizeKB <= maxFileSize) {
+      await fs.copy(inputPath, outputPath)
+      return { 
+        success: true, 
+        compressed: false, 
+        originalSize: { width: 0, height: 0, sizeKB: originalSizeKB },
+        newSize: { width: 0, height: 0, sizeKB: originalSizeKB },
+        message: `文件已小于目标大小(${maxFileSize}KB)，无需压缩` 
+      }
     }
 
     // 获取图片信息
@@ -892,35 +1206,46 @@ ipcMain.handle('compress-image', async (event, { inputPath, outputPath, maxDimen
     const metadata = await image.metadata()
     
     let { width, height } = metadata
+    let quality = 85
+    let compressedSizeKB = originalSizeKB
     
-    // 计算新的尺寸，保持宽高比
-    if (width > height) {
-      if (width > maxDimension) {
-        height = Math.round((height * maxDimension) / width)
-        width = maxDimension
+    // 逐步调整质量和尺寸，直到文件大小符合要求
+    while (compressedSizeKB > maxFileSize && quality > 10) {
+      // 如果质量已经很低，开始缩小尺寸
+      if (quality <= 30) {
+        width = Math.round(width * 0.9)
+        height = Math.round(height * 0.9)
+        // 如果尺寸太小，停止压缩
+        if (width < 100 || height < 100) {
+          break
+        }
       }
-    } else {
-      if (height > maxDimension) {
-        width = Math.round((width * maxDimension) / height)
-        height = maxDimension
+      
+      // 压缩图片
+      await image
+        .resize(width, height, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({ quality })
+        .toFile(outputPath)
+      
+      // 检查压缩后的文件大小
+      const compressedStats = await fs.stat(outputPath)
+      compressedSizeKB = Math.round(compressedStats.size / 1024)
+      
+      // 如果还是太大，降低质量
+      if (compressedSizeKB > maxFileSize) {
+        quality -= 5
       }
     }
-    
-    // 压缩图片
-    await image
-      .resize(width, height, {
-        fit: 'inside',
-        withoutEnlargement: true
-      })
-      .jpeg({ quality: 85 })
-      .toFile(outputPath)
     
     return { 
       success: true, 
       compressed: true, 
-      originalSize: { width: metadata.width, height: metadata.height },
-      newSize: { width, height },
-      message: `压缩完成: ${metadata.width}x${metadata.height} → ${width}x${height}`
+      originalSize: { width: metadata.width, height: metadata.height, sizeKB: originalSizeKB },
+      newSize: { width, height, sizeKB: compressedSizeKB },
+      message: `压缩完成: ${originalSizeKB}KB → ${compressedSizeKB}KB (${width}x${height}, 质量:${quality}%)`
     }
   } catch (error) {
     return { 

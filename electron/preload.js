@@ -63,7 +63,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {Map} params.mapping - 文件名映射表
    * @param {Array} params.files - 要处理的文件列表
    * @param {string} params.conflictStrategy - 冲突处理策略
-   * @param {number} params.maxDimension - 图片最大尺寸
+   * @param {string} params.compressionMode - 压缩模式：'dimension' 或 'filesize'
+   * @param {number} params.maxDimension - 最长边像素数（dimension模式）
+   * @param {number} params.maxFileSize - 最大文件大小（KB）（filesize模式）
    * @returns {Promise<Object>} 处理结果和统计信息
    */
   processFiles: (params) => ipcRenderer.invoke('process-files', params),
@@ -84,7 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * 
    * @param {Object} params - 压缩参数对象
    * @param {Array} params.imageTasks - 图片任务数组
-   * @param {number} params.maxDimension - 最大尺寸限制
+   * @param {number} params.maxFileSize - 最大文件大小（KB）
    * @param {boolean} params.useMultiThread - 是否使用多线程
    * @returns {Promise<Object>} 压缩结果和统计信息
    */
@@ -97,7 +99,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {Object} params - 压缩参数对象
    * @param {string} params.inputPath - 输入图片路径
    * @param {string} params.outputPath - 输出图片路径
-   * @param {number} params.maxDimension - 最大尺寸限制
+   * @param {number} params.maxFileSize - 最大文件大小（KB）
    * @returns {Promise<Object>} 压缩结果
    */
   compressImage: (params) => ipcRenderer.invoke('compress-image', params),
