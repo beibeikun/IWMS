@@ -21,6 +21,13 @@ const path = require('path')
  */
 async function exportResultsToCSV(results, outputPath, reportType = 'execution') {
   try {
+    console.log('exportResultsToCSV: 开始导出，参数:', { 
+      resultsType: typeof results, 
+      resultsLength: results?.length, 
+      outputPath, 
+      reportType 
+    })
+    
     // 确保输入参数是数组
     if (!Array.isArray(results)) {
       console.warn('exportResultsToCSV: results 不是数组，转换为空数组')
@@ -30,13 +37,24 @@ async function exportResultsToCSV(results, outputPath, reportType = 'execution')
     // 深度清理数据，只保留可序列化的属性
     const cleanResults = results.map((result, index) => {
       try {
-        return {
+        // 确保每个字段都是字符串类型
+        const cleanResult = {
           sourcePath: String(result?.sourcePath || ''),
           originalName: String(result?.originalName || ''),
           newName: String(result?.newName || ''),
           status: String(result?.status || ''),
           message: String(result?.message || '')
         }
+        
+        // 验证清理后的数据
+        Object.keys(cleanResult).forEach(key => {
+          if (typeof cleanResult[key] !== 'string') {
+            console.warn(`exportResultsToCSV: 第 ${index} 项的 ${key} 字段不是字符串，强制转换`)
+            cleanResult[key] = String(cleanResult[key] || '')
+          }
+        })
+        
+        return cleanResult
       } catch (itemError) {
         console.warn(`exportResultsToCSV: 清理第 ${index} 项数据失败:`, itemError.message)
         return {

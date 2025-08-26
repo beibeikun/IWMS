@@ -28,7 +28,7 @@ echo "✅ Maven检查通过: $(mvn -version | head -n 1)"
 
 # 创建必要的目录
 echo "📁 创建必要的目录..."
-mkdir -p data uploads temp reports
+mkdir -p data
 
 # 编译项目
 echo "🔨 编译项目..."

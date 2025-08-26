@@ -24,7 +24,7 @@ RUN apt-get update && \
 EXPOSE 8080
 
 # 创建必要的目录
-RUN mkdir -p /app/data /app/uploads /app/temp /app/reports
+RUN mkdir -p /app/data
 
 # 设置环境变量
 ENV JAVA_OPTS="-Xmx512m -Xms256m"

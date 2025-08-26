@@ -200,7 +200,31 @@ ipcMain.handle('process-files', async (event, params) => {
  */
 ipcMain.handle('export-results', async (event, results, outputPath) => {
   try {
-    console.log('export-results: 开始导出，参数:', { resultsLength: results?.length, outputPath })
+    console.log('export-results: 开始导出，参数:', { 
+      resultsType: typeof results, 
+      resultsLength: results?.length, 
+      outputPath,
+      resultsSample: results?.slice(0, 2) // 只记录前两个样本用于调试
+    })
+    
+    // 验证输入参数
+    if (!results) {
+      console.warn('export-results: results 参数为空')
+      return {
+        success: false,
+        error: '结果数据为空',
+        message: '没有可导出的数据'
+      }
+    }
+    
+    if (!outputPath) {
+      console.warn('export-results: outputPath 参数为空')
+      return {
+        success: false,
+        error: '输出路径为空',
+        message: '请选择输出目录'
+      }
+    }
     
     const reportPath = await exportResultsToCSV(results, outputPath, 'execution')
     
@@ -220,7 +244,7 @@ ipcMain.handle('export-results', async (event, results, outputPath) => {
       }
     }
   } catch (error) {
-    console.error('export-results: 捕获到异常:', error.message)
+    console.error('export-results: 捕获到异常:', error.message, error.stack)
     return {
       success: false,
       error: error.message,

@@ -30,36 +30,17 @@ spring:
       enabled: true
       path: /h2-console
   
-  # 文件上传配置
-  servlet:
-    multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
-  
   # 安全配置
   security:
     user:
       name: admin
       password: admin123
 
-# 文件存储配置
+# 应用配置
 iwms:
-  file:
-    upload-dir: ./uploads
-    temp-dir: ./temp
-    max-file-size: 100MB
-    allowed-extensions: jpg,jpeg,png,gif,bmp,tiff,xlsx,xls,csv,txt
-  
-  # 任务配置
-  task:
-    max-concurrent: 4
-    timeout: 300000 # 5分钟
-    
-  # 压缩配置
-  compression:
-    quality: 0.8
-    max-width: 1920
-    max-height: 1080
+  app:
+    name: IWMS智能文件管理系统
+    version: 1.0.0
 
 # 日志配置
 logging:

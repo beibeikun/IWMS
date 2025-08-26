@@ -11,12 +11,7 @@ const routes = [
     component: () => import('../views/Dashboard.vue'),
     meta: { title: '仪表盘' }
   },
-  {
-    path: '/tasks',
-    name: 'Tasks',
-    component: () => import('../views/Tasks.vue'),
-    meta: { title: '任务管理' }
-  },
+
   {
     path: '/files',
     name: 'Files',

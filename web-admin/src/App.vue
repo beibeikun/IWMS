@@ -19,10 +19,7 @@
             <el-icon><Monitor /></el-icon>
             <span>仪表盘</span>
           </el-menu-item>
-          <el-menu-item index="/tasks">
-            <el-icon><List /></el-icon>
-            <span>任务管理</span>
-          </el-menu-item>
+
           <el-menu-item index="/files">
             <el-icon><Folder /></el-icon>
             <span>文件管理</span>
@@ -76,7 +73,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Monitor, List, Folder, Document, Setting } from '@element-plus/icons-vue'
+import { Monitor, Folder, Document, Setting } from '@element-plus/icons-vue'
 
 const route = useRoute()
 
@@ -84,7 +81,6 @@ const activeMenu = computed(() => route.path)
 const currentPage = computed(() => {
   const pageMap = {
     '/dashboard': '仪表盘',
-    '/tasks': '任务管理',
     '/files': '文件管理',
     '/reports': '报告中心',
     '/settings': '系统设置'

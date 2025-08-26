@@ -695,19 +695,69 @@ export default {
     
     const exportPreviewResults = async () => {
       try {
-        const result = await window.electronAPI.exportResults(previewResults.value, form.outputPath)
+        console.log('exportPreviewResults: 开始导出预览结果', {
+          previewResultsLength: previewResults.value?.length,
+          previewResultsType: typeof previewResults.value,
+          outputPath: form.outputPath
+        })
+        
+        // 清理数据，确保只传递可序列化的对象
+        const cleanResults = previewResults.value.map((result, index) => {
+          try {
+            const cleanResult = {
+              sourcePath: String(result?.sourcePath || ''),
+              originalName: String(result?.originalName || ''),
+              newName: String(result?.newName || ''),
+              status: String(result?.status || ''),
+              message: String(result?.message || '')
+            }
+            
+            // 验证清理后的数据
+            Object.keys(cleanResult).forEach(key => {
+              if (typeof cleanResult[key] !== 'string') {
+                console.warn(`exportPreviewResults: 第 ${index} 项的 ${key} 字段不是字符串，强制转换`)
+                cleanResult[key] = String(cleanResult[key] || '')
+              }
+            })
+            
+            return cleanResult
+          } catch (itemError) {
+            console.warn(`exportPreviewResults: 清理第 ${index} 项数据失败:`, itemError.message)
+            return {
+              sourcePath: '',
+              originalName: '',
+              newName: '',
+              status: 'error',
+              message: '数据清理失败'
+            }
+          }
+        })
+        
+        console.log('exportPreviewResults: 清理后的数据', {
+          cleanResultsLength: cleanResults?.length,
+          cleanResultsSample: cleanResults?.slice(0, 2)
+        })
+        
+        const result = await window.electronAPI.exportResults(cleanResults, form.outputPath)
         if (result.success) {
           ElMessage.success(`预览报告已导出到: ${result.reportPath}`)
         } else {
           ElMessage.error(`导出报告失败: ${result.error || result.message}`)
         }
       } catch (error) {
+        console.error('exportPreviewResults: 捕获到异常:', error.message, error.stack)
         ElMessage.error(`导出报告失败: ${error.message}`)
       }
     }
     
     const exportExecutionResults = async () => {
       try {
+        console.log('exportExecutionResults: 开始导出执行结果', {
+          executionResultsLength: executionResults.value?.length,
+          executionResultsType: typeof executionResults.value,
+          targetPath: executionSummary.value.outputDirectory || form.outputPath
+        })
+        
         // 如果有执行结果且包含输出目录信息，优先使用实际输出目录
         const targetPath = executionSummary.value.outputDirectory || form.outputPath
         
@@ -716,13 +766,51 @@ export default {
           return
         }
         
-        const result = await window.electronAPI.exportResults(executionResults.value, targetPath)
+        // 清理数据，确保只传递可序列化的对象
+        const cleanResults = executionResults.value.map((result, index) => {
+          try {
+            const cleanResult = {
+              sourcePath: String(result?.sourcePath || ''),
+              originalName: String(result?.originalName || ''),
+              newName: String(result?.newName || ''),
+              status: String(result?.status || ''),
+              message: String(result?.message || '')
+            }
+            
+            // 验证清理后的数据
+            Object.keys(cleanResult).forEach(key => {
+              if (typeof cleanResult[key] !== 'string') {
+                console.warn(`exportExecutionResults: 第 ${index} 项的 ${key} 字段不是字符串，强制转换`)
+                cleanResult[key] = String(cleanResult[key] || '')
+              }
+            })
+            
+            return cleanResult
+          } catch (itemError) {
+            console.warn(`exportExecutionResults: 清理第 ${index} 项数据失败:`, itemError.message)
+            return {
+              sourcePath: '',
+              originalName: '',
+              newName: '',
+              status: 'error',
+              message: '数据清理失败'
+            }
+          }
+        })
+        
+        console.log('exportExecutionResults: 清理后的数据', {
+          cleanResultsLength: cleanResults?.length,
+          cleanResultsSample: cleanResults?.slice(0, 2)
+        })
+        
+        const result = await window.electronAPI.exportResults(cleanResults, targetPath)
         if (result.success) {
           ElMessage.success(`执行报告已导出到: ${result.reportPath}`)
         } else {
           ElMessage.error(`导出报告失败: ${result.error || result.message}`)
         }
       } catch (error) {
+        console.error('exportExecutionResults: 捕获到异常:', error.message, error.stack)
         ElMessage.error(`导出报告失败: ${error.message}`)
       }
     }

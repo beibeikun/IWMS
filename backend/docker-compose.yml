@@ -10,9 +10,6 @@ services:
       - JAVA_OPTS=-Xmx512m -Xms256m
     volumes:
       - ./data:/app/data
-      - ./uploads:/app/uploads
-      - ./temp:/app/temp
-      - ./reports:/app/reports
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
