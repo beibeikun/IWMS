@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  iwms-backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xmx512m -Xms256m
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+      - ./reports:/app/reports
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 可选：MySQL数据库服务
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: iwms
+      MYSQL_USER: iwms
+      MYSQL_PASSWORD: iwms123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    profiles:
+      - mysql
+
+volumes:
+  mysql_data:

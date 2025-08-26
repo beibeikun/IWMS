@@ -1,0 +1,9 @@
+com/iwms/controller/FileTaskController.class
+com/iwms/dto/ApiResponse.class
+com/iwms/entity/FileTask$TaskStatus.class
+com/iwms/repository/FileTaskRepository.class
+com/iwms/service/FileTaskService.class
+com/iwms/IwmsBackendApplication.class
+com/iwms/entity/FileTask.class
+com/iwms/dto/FileTaskRequest.class
+com/iwms/service/impl/FileTaskServiceImpl.class
