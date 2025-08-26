@@ -1,0 +1,144 @@
+{
+  "name": "iwms-desktop",
+  "version": "1.0.0",
+  "description": "IWMS - 智能文件管理桌面应用",
+  "main": "dist-electron/main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "vite",
+    "electron:dev:fallback": "node scripts/copy-electron-modules.js && concurrently \"npm run dev\" \"wait-on tcp:5173 && cross-env IS_DEV=true electron .\"",
+    "electron:build": "npm run build && node scripts/copy-electron-modules.js && electron-builder",
+    "dist": "npm run build && node scripts/copy-electron-modules.js && electron-builder --publish=never",
+    "build:mac-arm": "npm run build && node scripts/copy-electron-modules.js && electron-builder --mac --arm64",
+    "build:mac-x64": "npm run build && node scripts/copy-electron-modules.js && electron-builder --mac --x64",
+    "build:win-x64": "npm run build && node scripts/copy-electron-modules.js && electron-builder --win --x64",
+    "build:win-ia32": "npm run build && node scripts/copy-electron-modules.js && electron-builder --win --ia32",
+    "build:all": "npm run build && node scripts/copy-electron-modules.js && electron-builder -mwl"
+  },
+  "keywords": [
+    "electron",
+    "vue",
+    "iwms",
+    "file-management",
+    "batch-processing",
+    "desktop-app"
+  ],
+  "author": "IWMS Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.4.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "vite": "^4.4.9",
+    "vite-plugin-electron": "^0.15.5",
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "wait-on": "^7.0.1"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.1.0",
+    "element-plus": "^2.3.8",
+    "fast-glob": "^3.3.1",
+    "fs-extra": "^11.1.1",
+    "path": "^0.12.7",
+    "sharp": "^0.34.3",
+    "vue": "^3.3.4",
+    "vue-router": "^4.5.1",
+    "xlsx": "^0.18.5"
+  },
+  "build": {
+    "appId": "com.iwms.desktop",
+    "productName": "IWMS Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "node_modules/@img/**/*",
+      "node_modules/sharp/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/@img",
+        "to": "node_modules/@img"
+      },
+      {
+        "from": "node_modules/sharp",
+        "to": "node_modules/sharp"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64",
+            "armv7l"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64",
+            "armv7l"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    }
+  }
+}
