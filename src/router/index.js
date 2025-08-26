@@ -69,12 +69,11 @@ const routes = [
     }
   },
   {
-    path: '/repository-config',
-    name: 'RepositoryConfig',
-    component: () => import('../views/RepositoryConfig.vue'),
+    path: '/system-settings',
+    name: 'SystemSettings',
+    component: () => import('../views/SystemSettings.vue'),
     meta: {
-      title: '仓库配置 - IWMS',
-      disabled: true
+      title: '系统设置 - IWMS'
     }
   }
 ]

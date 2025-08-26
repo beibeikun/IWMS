@@ -32,7 +32,7 @@ src/
     ├── RepositoryRelated.vue # 仓库相关（占位）
     ├── GenerateForm.vue      # 生成表单（占位）
     ├── DeleteFromRepo.vue    # 从仓库删除（占位）
-    └── RepositoryConfig.vue  # 仓库配置（占位）
+    └── SystemSettings.vue  # 系统设置
 ```
 
 ### 4. 用户体验提升

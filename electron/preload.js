@@ -123,5 +123,41 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {string} folderPath - 要打开的文件夹路径
    * @returns {Promise<Object>} 操作结果
    */
-  openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath)
+  openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath),
+
+  // ==================== 系统设置相关 API ====================
+
+  /**
+   * 保存系统设置
+   * 将用户设置保存到本地配置文件
+   * 
+   * @param {Object} settings - 设置对象
+   * @returns {Promise<Object>} 保存结果
+   */
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+
+  /**
+   * 加载系统设置
+   * 从本地配置文件加载用户设置
+   * 
+   * @returns {Promise<Object>} 设置对象
+   */
+  loadSettings: () => ipcRenderer.invoke('load-settings'),
+
+  /**
+   * 导出系统设置
+   * 将当前设置导出为JSON文件
+   * 
+   * @param {Object} settings - 要导出的设置对象
+   * @returns {Promise<Object>} 导出结果
+   */
+  exportSettings: (settings) => ipcRenderer.invoke('export-settings', settings),
+
+  /**
+   * 导入系统设置
+   * 从JSON文件导入设置
+   * 
+   * @returns {Promise<Object>} 导入的设置对象
+   */
+  importSettings: () => ipcRenderer.invoke('import-settings')
 })

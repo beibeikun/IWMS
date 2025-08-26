@@ -2,7 +2,6 @@
   <div class="batch-rename-container">
     <el-steps :active="currentStep" finish-status="success" align-center>
       <el-step title="选择输入文件夹" description="选择需要处理的文件所在文件夹" />
-      <el-step title="选择输出路径" description="选择处理后的文件输出位置" />
       <el-step title="上传映射表" description="上传Excel映射文件" />
       <el-step title="预览与执行" description="预览变更并执行重命名" />
     </el-steps>
@@ -33,6 +32,53 @@
               active-text="包含子文件夹"
               inactive-text="仅当前文件夹"
             />
+          </el-form-item>
+          
+          <el-form-item label="输出路径:" v-if="form.outputPath">
+            <el-input 
+              v-model="form.outputPath" 
+              placeholder="使用系统设置中的默认输出路径"
+              readonly
+            >
+              <template #prepend>
+                <el-icon><Folder /></el-icon>
+              </template>
+            </el-input>
+            <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+              使用系统设置中的默认输出路径，可在系统设置中修改
+            </div>
+          </el-form-item>
+          
+          <el-form-item label="输出路径:" v-else>
+            <el-alert
+              title="未设置默认输出路径"
+              type="warning"
+              :closable="false"
+              show-icon
+            >
+              <template #default>
+              请在系统设置中设置默认输出路径，或点击下方按钮手动选择
+              </template>
+            </el-alert>
+            <el-button 
+              type="primary" 
+              @click="selectOutputFolder" 
+              style="margin-top: 10px;"
+              class="folder-select-btn"
+            >
+              手动选择输出路径
+            </el-button>
+          </el-form-item>
+          
+          <el-form-item label="冲突处理策略:">
+            <el-radio-group v-model="form.conflictStrategy">
+              <el-radio label="skip">跳过冲突文件</el-radio>
+              <el-radio label="overwrite">覆盖已存在的文件</el-radio>
+              <el-radio label="append">自动追加后缀</el-radio>
+            </el-radio-group>
+            <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+              使用系统设置中的默认策略，可在系统设置中修改
+            </div>
           </el-form-item>
           
           <el-form-item label="文件类型:">
@@ -140,7 +186,7 @@
           </el-form-item>
           
           <el-form-item>
-            <el-button type="primary" @click="nextStep" :disabled="!form.inputPath" class="next-step-btn">
+            <el-button type="primary" @click="nextStep" :disabled="!form.inputPath || !form.outputPath" class="next-step-btn">
               下一步
             </el-button>
           </el-form-item>
@@ -148,49 +194,13 @@
       </el-card>
     </div>
 
-    <!-- 步骤2: 选择输出路径 -->
+
+
+    <!-- 步骤2: 上传映射表 -->
     <div v-if="currentStep === 1" class="step-content">
       <el-card>
         <template #header>
-          <span>步骤 2: 选择输出路径</span>
-        </template>
-        
-        <el-form :model="form" label-width="120px">
-          <el-form-item label="输出路径:">
-            <el-input 
-              v-model="form.outputPath" 
-              placeholder="请选择处理后的文件输出位置"
-              readonly
-            >
-              <template #append>
-                <el-button class="folder-select-btn" @click="selectOutputFolder">选择文件夹</el-button>
-              </template>
-            </el-input>
-          </el-form-item>
-          
-          <el-form-item label="冲突处理策略:">
-            <el-radio-group v-model="form.conflictStrategy">
-              <el-radio label="skip">跳过冲突文件</el-radio>
-              <el-radio label="overwrite">覆盖已存在的文件</el-radio>
-              <el-radio label="append">自动追加后缀</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          
-          <el-form-item>
-            <el-button @click="prevStep">上一步</el-button>
-            <el-button type="primary" @click="nextStep" :disabled="!form.outputPath" class="next-step-btn">
-              下一步
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-    </div>
-
-    <!-- 步骤3: 上传映射表 -->
-    <div v-if="currentStep === 2" class="step-content">
-      <el-card>
-        <template #header>
-          <span>步骤 3: 上传Excel映射表</span>
+          <span>步骤 2: 上传Excel映射表</span>
         </template>
         
         <el-form :model="form" label-width="120px">
@@ -245,11 +255,11 @@
       </el-card>
     </div>
 
-    <!-- 步骤4: 预览与执行 -->
-    <div v-if="currentStep === 3" class="step-content">
+    <!-- 步骤3: 预览与执行 -->
+    <div v-if="currentStep === 2" class="step-content">
       <el-card>
         <template #header>
-          <span>步骤 4: 预览与执行</span>
+          <span>步骤 3: 预览与执行</span>
         </template>
         
         <div v-if="!previewResults.length">
@@ -387,7 +397,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 
 export default {
@@ -402,13 +412,16 @@ export default {
       inputPath: '',
       outputPath: '',
       excelPath: '',
-      recursive: false,
+      recursive: true,
       fileTypes: 'image',
       maxFileSize: 0,
       conflictStrategy: 'skip',
       compressionMode: 'dimension',
       maxDimension: 0
     })
+    
+    // 系统设置
+    const systemSettings = ref({})
     
     const mappingData = ref([])
     const mappingErrors = ref([])
@@ -430,7 +443,7 @@ export default {
     )
     
     const nextStep = () => {
-      if (currentStep.value < 3) {
+      if (currentStep.value < 2) {
         currentStep.value++
       }
     }
@@ -438,6 +451,26 @@ export default {
     const prevStep = () => {
       if (currentStep.value > 0) {
         currentStep.value--
+      }
+    }
+    
+    // 加载系统设置
+    const loadSystemSettings = async () => {
+      try {
+        const settings = await window.electronAPI.loadSettings()
+        if (settings) {
+          systemSettings.value = settings
+          // 应用默认设置
+          form.outputPath = settings.defaultOutputPath || ''
+          form.recursive = settings.defaultRecursive !== undefined ? settings.defaultRecursive : true
+          form.fileTypes = settings.defaultFileTypes || 'image'
+          form.conflictStrategy = settings.defaultConflictStrategy || 'skip'
+          form.compressionMode = settings.defaultCompressionMode || 'dimension'
+          form.maxDimension = settings.defaultMaxDimension || 0
+          form.maxFileSize = settings.defaultMaxFileSize || 0
+        }
+      } catch (error) {
+        console.warn('加载系统设置失败:', error.message)
       }
     }
     
@@ -462,6 +495,11 @@ export default {
         ElMessage.error(`选择输出文件夹失败: ${error.message}`)
       }
     }
+    
+    // 组件挂载时加载系统设置
+    onMounted(() => {
+      loadSystemSettings()
+    })
     
     const selectExcelFile = async () => {
       try {
@@ -642,7 +680,7 @@ export default {
       form.inputPath = ''
       form.outputPath = ''
       form.excelPath = ''
-      form.recursive = false
+      form.recursive = true
       form.fileTypes = 'image'
       form.maxFileSize = 0
       form.compressionMode = 'dimension'
@@ -653,6 +691,9 @@ export default {
       executionResults.value = []
       summary.value = {}
       executionSummary.value = {}
+      
+      // 重新加载系统设置
+      loadSystemSettings()
     }
     
     return {
@@ -661,6 +702,7 @@ export default {
       previewLoading,
       executing,
       form,
+      systemSettings,
       mappingData,
       mappingErrors,
       previewResults,

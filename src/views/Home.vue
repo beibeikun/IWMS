@@ -51,13 +51,15 @@
             <el-tag size="small" type="info">即将推出</el-tag>
           </div>
           
-          <div class="feature-card disabled">
+          <div class="feature-card" @click="navigateToSystemSettings">
             <div class="feature-icon">
               <el-icon><Setting /></el-icon>
             </div>
-            <h3>仓库配置</h3>
-            <p>仓库设置和管理，支持多仓库配置</p>
-            <el-tag size="small" type="info">即将推出</el-tag>
+            <h3>系统设置</h3>
+            <p>系统配置和个性化设置，包括默认参数和界面选项</p>
+            <el-button type="primary" @click="navigateToSystemSettings">
+              进入设置
+            </el-button>
           </div>
         </div>
       </div>
@@ -77,8 +79,13 @@ export default {
       router.push('/batch-rename')
     }
     
+    const navigateToSystemSettings = () => {
+      router.push('/system-settings')
+    }
+    
     return {
-      navigateToBatchRename
+      navigateToBatchRename,
+      navigateToSystemSettings
     }
   }
 }

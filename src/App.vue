@@ -75,12 +75,11 @@
               <el-tag size="small" type="info">即将推出</el-tag>
             </el-menu-item>
             
-            <el-menu-item index="repository-config" disabled>
+            <el-menu-item index="system-settings">
               <div class="menu-item-content">
                 <el-icon><Setting /></el-icon>
-                <span>仓库配置</span>
+                <span>系统设置</span>
               </div>
-              <el-tag size="small" type="info">即将推出</el-tag>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -95,7 +94,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -106,6 +105,34 @@ export default {
     const router = useRouter()
     const sidebarCollapsed = ref(false)
     
+    // 加载系统设置
+    const loadSystemSettings = async () => {
+      try {
+        const settings = await window.electronAPI.loadSettings()
+        if (settings && settings.sidebarCollapsed !== undefined) {
+          sidebarCollapsed.value = settings.sidebarCollapsed
+        }
+      } catch (error) {
+        console.warn('加载系统设置失败:', error.message)
+      }
+    }
+    
+    // 辅助函数：从设置对象中提取普通JavaScript对象
+    const extractSettings = (settings) => {
+      return {
+        defaultOutputPath: settings.defaultOutputPath || '',
+        defaultCompressionMode: settings.defaultCompressionMode || 'dimension',
+        defaultMaxDimension: settings.defaultMaxDimension || 1920,
+        defaultMaxFileSize: settings.defaultMaxFileSize || 500,
+        defaultFileTypes: settings.defaultFileTypes || 'image',
+        defaultRecursive: settings.defaultRecursive !== undefined ? settings.defaultRecursive : true,
+        defaultConflictStrategy: settings.defaultConflictStrategy || 'skip',
+        useMultiThread: settings.useMultiThread !== undefined ? settings.useMultiThread : true,
+        sidebarCollapsed: settings.sidebarCollapsed !== undefined ? settings.sidebarCollapsed : false,
+        autoSaveSettings: settings.autoSaveSettings !== undefined ? settings.autoSaveSettings : true
+      }
+    }
+    
     // 根据当前路由计算激活的菜单项
     const activeMenu = computed(() => {
       const path = route.path
@@ -113,8 +140,19 @@ export default {
       return path.substring(1) // 移除开头的 '/'
     })
     
-    const toggleSidebar = () => {
+    const toggleSidebar = async () => {
       sidebarCollapsed.value = !sidebarCollapsed.value
+      
+      // 自动保存侧边栏状态到系统设置
+      try {
+        const settings = await window.electronAPI.loadSettings()
+        if (settings) {
+          settings.sidebarCollapsed = sidebarCollapsed.value
+          await window.electronAPI.saveSettings(extractSettings(settings))
+        }
+      } catch (error) {
+        console.warn('保存侧边栏状态失败:', error.message)
+      }
     }
     
     const handleMenuSelect = (index) => {
@@ -126,12 +164,12 @@ export default {
         'repository-related': '/repository-related',
         'generate-form': '/generate-form',
         'delete-from-repo': '/delete-from-repo',
-        'repository-config': '/repository-config'
+        'system-settings': '/system-settings'
       }
       
       const targetRoute = routeMap[index]
       if (targetRoute) {
-        if (['file-operations', 'repository-related', 'generate-form', 'delete-from-repo', 'repository-config'].includes(index)) {
+        if (['file-operations', 'repository-related', 'generate-form', 'delete-from-repo'].includes(index)) {
           ElMessage.info('该功能即将推出，敬请期待！')
           return
         } else {
@@ -143,6 +181,11 @@ export default {
     // 监听路由变化，自动更新菜单状态
     watch(() => route.path, (newPath) => {
       // 路由变化时的处理逻辑
+    })
+    
+    // 组件挂载时加载系统设置
+    onMounted(() => {
+      loadSystemSettings()
     })
     
     return {

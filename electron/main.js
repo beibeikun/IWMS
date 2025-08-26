@@ -273,6 +273,121 @@ ipcMain.handle('get-system-info', () => {
   }
 })
 
+// ==================== 系统设置相关 ====================
+
+/**
+ * 保存系统设置
+ */
+ipcMain.handle('save-settings', async (event, settings) => {
+  try {
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json')
+    await fs.writeJson(settingsPath, settings, { spaces: 2 })
+    return {
+      success: true,
+      message: '设置保存成功'
+    }
+  } catch (error) {
+    console.error('保存设置失败:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+/**
+ * 加载系统设置
+ */
+ipcMain.handle('load-settings', async () => {
+  try {
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json')
+    
+    if (await fs.pathExists(settingsPath)) {
+      const settings = await fs.readJson(settingsPath)
+      return settings
+    }
+    
+    // 返回默认设置
+    return {
+      defaultOutputPath: '',
+      defaultCompressionMode: 'dimension',
+      defaultMaxDimension: 1920,
+      defaultMaxFileSize: 500,
+      defaultFileTypes: 'image',
+      defaultRecursive: true,
+      defaultConflictStrategy: 'skip',
+      useMultiThread: true,
+      sidebarCollapsed: false,
+      autoSaveSettings: true
+    }
+  } catch (error) {
+    console.error('加载设置失败:', error)
+    return null
+  }
+})
+
+/**
+ * 导出系统设置
+ */
+ipcMain.handle('export-settings', async (event, settings) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '导出系统设置',
+      defaultPath: 'iwms-settings.json',
+      filters: [
+        { name: 'JSON文件', extensions: ['json'] },
+        { name: '所有文件', extensions: ['*'] }
+      ]
+    })
+    
+    if (!result.canceled && result.filePath) {
+      await fs.writeJson(result.filePath, settings, { spaces: 2 })
+      return {
+        success: true,
+        message: '设置导出成功'
+      }
+    }
+    
+    return {
+      success: false,
+      message: '用户取消导出'
+    }
+  } catch (error) {
+    console.error('导出设置失败:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+/**
+ * 导入系统设置
+ */
+ipcMain.handle('import-settings', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '导入系统设置',
+      filters: [
+        { name: 'JSON文件', extensions: ['json'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      const settingsPath = result.filePaths[0]
+      const settings = await fs.readJson(settingsPath)
+      return settings
+    }
+    
+    return null
+  } catch (error) {
+    console.error('导入设置失败:', error)
+    throw new Error(error.message)
+  }
+})
+
 // ==================== 错误处理 ====================
 
 /**

@@ -146,6 +146,22 @@ export default {
     
     const settings = reactive({ ...defaultSettings })
     
+    // 辅助函数：从reactive对象中提取普通JavaScript对象
+    const extractSettings = () => {
+      return {
+        defaultOutputPath: settings.defaultOutputPath,
+        defaultCompressionMode: settings.defaultCompressionMode,
+        defaultMaxDimension: settings.defaultMaxDimension,
+        defaultMaxFileSize: settings.defaultMaxFileSize,
+        defaultFileTypes: settings.defaultFileTypes,
+        defaultRecursive: settings.defaultRecursive,
+        defaultConflictStrategy: settings.defaultConflictStrategy,
+        useMultiThread: settings.useMultiThread,
+        sidebarCollapsed: settings.sidebarCollapsed,
+        autoSaveSettings: settings.autoSaveSettings
+      }
+    }
+    
     // 选择默认输出路径
     const selectDefaultOutputPath = async () => {
       try {
@@ -161,7 +177,7 @@ export default {
     // 保存设置
     const saveSettings = async () => {
       try {
-        await window.electronAPI.saveSettings(settings)
+        await window.electronAPI.saveSettings(extractSettings())
         ElMessage.success('设置保存成功')
       } catch (error) {
         ElMessage.error('保存设置失败: ' + error.message)
@@ -182,7 +198,7 @@ export default {
         )
         
         Object.assign(settings, defaultSettings)
-        await window.electronAPI.saveSettings(settings)
+        await window.electronAPI.saveSettings(extractSettings())
         ElMessage.success('设置已重置为默认值')
       } catch (error) {
         if (error !== 'cancel') {
@@ -194,7 +210,7 @@ export default {
     // 导出设置
     const exportSettings = async () => {
       try {
-        await window.electronAPI.exportSettings(settings)
+        await window.electronAPI.exportSettings(extractSettings())
         ElMessage.success('设置导出成功')
       } catch (error) {
         ElMessage.error('导出设置失败: ' + error.message)
@@ -245,16 +261,17 @@ export default {
 <style scoped>
 .system-settings-container {
   padding: 20px;
-  min-height: calc(100vh - 120px);
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background-color: #f8fafc;
+  min-height: calc(100vh - 80px);
 }
 
 .settings-card {
   max-width: 800px;
   margin: 0 auto;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .card-header {
@@ -263,12 +280,12 @@ export default {
   gap: 10px;
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
+  color: #1e293b;
 }
 
 .card-header .el-icon {
   font-size: 20px;
-  color: #60a5fa;
+  color: #3b82f6;
 }
 
 .settings-form {
@@ -278,7 +295,7 @@ export default {
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  color: #60a5fa;
+  color: #3b82f6;
 }
 
 .el-divider {
@@ -287,7 +304,7 @@ export default {
 
 .el-divider__text {
   background: transparent;
-  color: #60a5fa;
+  color: #3b82f6;
   font-weight: 600;
 }
 
@@ -296,7 +313,7 @@ export default {
 }
 
 .el-form-item__label {
-  color: #e2e8f0;
+  color: #374151;
   font-weight: 500;
 }
 
@@ -313,72 +330,101 @@ export default {
 
 .el-button {
   margin-right: 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid #dcdfe6;
+  background: #ffffff;
+  color: #606266;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.el-button:hover {
+  background: #f5f7fa;
+  border-color: #c0c4cc;
+  color: #409eff;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .el-button:last-child {
   margin-right: 0;
 }
 
-/* 深色主题适配 */
+.el-button--primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+.el-button--primary:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+/* 浅色主题适配 */
 :deep(.el-card) {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: none;
+  color: #374151;
 }
 
 :deep(.el-card__header) {
-  background: rgba(51, 65, 85, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 12px 12px 0 0;
 }
 
 :deep(.el-input__wrapper) {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #ffffff;
+  border: 1px solid #d1d5db;
 }
 
 :deep(.el-input__wrapper:hover) {
-  border-color: #60a5fa;
+  border-color: #3b82f6;
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
 }
 
 :deep(.el-input__inner) {
-  color: #e2e8f0;
+  color: #374151;
 }
 
 :deep(.el-input-number__decrease),
 :deep(.el-input-number__increase) {
-  background: rgba(51, 65, 85, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #e2e8f0;
+  background: #f8fafc;
+  border: 1px solid #d1d5db;
+  color: #374151;
 }
 
 :deep(.el-radio__label) {
-  color: #e2e8f0;
+  color: #374151;
 }
 
 :deep(.el-switch__label) {
-  color: #e2e8f0;
+  color: #374151;
 }
 
 :deep(.el-select-dropdown) {
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #d1d5db;
 }
 
 :deep(.el-select-dropdown__item) {
-  color: #e2e8f0;
+  color: #374151;
 }
 
 :deep(.el-select-dropdown__item:hover) {
-  background: rgba(96, 165, 250, 0.2);
+  background: #f1f5f9;
 }
 
 :deep(.el-select-dropdown__item.selected) {
-  background: #60a5fa;
+  background: #3b82f6;
   color: #ffffff;
 }
 </style>

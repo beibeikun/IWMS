@@ -10,13 +10,13 @@
     "preview": "vite preview",
     "electron:dev": "vite",
     "electron:dev:fallback": "node scripts/copy-electron-modules.js && concurrently \"npm run dev\" \"wait-on tcp:5173 && cross-env IS_DEV=true electron .\"",
-    "electron:build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never",
-    "build:mac-arm": "npm run build && electron-builder --mac --arm64",
-    "build:mac-x64": "npm run build && electron-builder --mac --x64",
-    "build:win-x64": "npm run build && electron-builder --win --x64",
-    "build:win-ia32": "npm run build && electron-builder --win --ia32",
-    "build:all": "npm run build && electron-builder -mwl"
+    "electron:build": "npm run build && node scripts/copy-electron-modules.js && electron-builder",
+    "dist": "npm run build && node scripts/copy-electron-modules.js && electron-builder --publish=never",
+    "build:mac-arm": "npm run build && node scripts/copy-electron-modules.js && electron-builder --mac --arm64",
+    "build:mac-x64": "npm run build && node scripts/copy-electron-modules.js && electron-builder --mac --x64",
+    "build:win-x64": "npm run build && node scripts/copy-electron-modules.js && electron-builder --win --x64",
+    "build:win-ia32": "npm run build && node scripts/copy-electron-modules.js && electron-builder --win --ia32",
+    "build:all": "npm run build && node scripts/copy-electron-modules.js && electron-builder -mwl"
   },
   "keywords": [
     "electron",
