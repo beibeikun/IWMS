@@ -1,10 +1,41 @@
 <template>
   <div class="batch-rename-container">
-    <el-steps :active="currentStep" finish-status="success" align-center>
-      <el-step title="选择输入文件夹" description="选择需要处理的文件所在文件夹" />
-      <el-step title="上传映射表" description="上传Excel映射文件" />
-      <el-step title="预览与执行" description="预览变更并执行重命名" />
-    </el-steps>
+    <!-- 环境检测提示 -->
+    <div v-if="!isElectronMode" class="environment-warning">
+      <el-alert
+        title="功能不可用"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="environment-alert"
+      >
+        <template #default>
+          <div class="warning-content">
+            <p><strong>批量重命名功能仅在 Electron 桌面应用中可用</strong></p>
+            <p>当前检测到您在网页环境中运行，该功能需要访问本地文件系统，因此无法使用。</p>
+            <p>请下载并安装 IWMS 桌面应用以获得完整功能。</p>
+            <div class="warning-actions">
+              <el-button type="primary" @click="downloadApp">
+                <el-icon><Download /></el-icon>
+                下载桌面应用
+              </el-button>
+              <el-button @click="goHome">
+                <el-icon><House /></el-icon>
+                返回首页
+              </el-button>
+            </div>
+          </div>
+        </template>
+      </el-alert>
+    </div>
+
+    <!-- 功能内容（仅在Electron模式下显示） -->
+    <div v-if="isElectronMode">
+      <el-steps :active="currentStep" finish-status="success" align-center>
+        <el-step title="选择输入文件夹" description="选择需要处理的文件所在文件夹" />
+        <el-step title="上传映射表" description="上传Excel映射文件" />
+        <el-step title="预览与执行" description="预览变更并执行重命名" />
+      </el-steps>
 
     <!-- 步骤1: 选择输入文件夹 -->
     <div v-if="currentStep === 0" class="step-content">
@@ -393,12 +424,14 @@
         </div>
       </el-card>
     </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Download, House } from '@element-plus/icons-vue'
 
 export default {
   name: 'BatchRename',
@@ -407,6 +440,7 @@ export default {
     const activeTab = ref('matched')
     const previewLoading = ref(false)
     const executing = ref(false)
+    const isElectronMode = ref(false)
     
     const form = reactive({
       inputPath: '',
@@ -496,9 +530,27 @@ export default {
       }
     }
     
-    // 组件挂载时加载系统设置
-    onMounted(() => {
-      loadSystemSettings()
+    // 检测运行环境
+    const checkEnvironment = async () => {
+      try {
+        // 检查是否在Electron环境中
+        if (window.electronAPI && typeof window.electronAPI.isElectron === 'function') {
+          isElectronMode.value = await window.electronAPI.isElectron()
+        } else {
+          isElectronMode.value = false
+        }
+      } catch (error) {
+        console.warn('环境检测失败:', error.message)
+        isElectronMode.value = false
+      }
+    }
+    
+    // 组件挂载时加载系统设置和检测环境
+    onMounted(async () => {
+      await checkEnvironment()
+      if (isElectronMode.value) {
+        await loadSystemSettings()
+      }
     })
     
     const selectExcelFile = async () => {
@@ -696,11 +748,36 @@ export default {
       loadSystemSettings()
     }
     
+    // 下载桌面应用
+    const downloadApp = () => {
+      // 这里可以添加下载链接
+      ElMessage.info('请访问项目主页下载桌面应用')
+      // 可以打开新窗口到下载页面
+      window.open('https://github.com/beibeikun/IWMS/releases', '_blank')
+    }
+    
+    // 返回首页
+    const goHome = () => {
+      // 使用路由导航到首页
+      try {
+        // 尝试使用Vue Router
+        if (window.location.pathname !== '/') {
+          window.history.back()
+        } else {
+          window.location.href = '/'
+        }
+      } catch (error) {
+        // 如果路由导航失败，直接跳转
+        window.location.href = '/'
+      }
+    }
+    
     return {
       currentStep,
       activeTab,
       previewLoading,
       executing,
+      isElectronMode,
       form,
       systemSettings,
       mappingData,
@@ -724,7 +801,9 @@ export default {
       openOutputFolder,
       exportPreviewResults,
       exportExecutionResults,
-      resetApp
+      resetApp,
+      downloadApp,
+      goHome
     }
   }
 }
@@ -735,6 +814,69 @@ export default {
   padding: 20px;
   background-color: #f8fafc;
   min-height: calc(100vh - 80px);
+}
+
+/* 环境警告样式 */
+.environment-warning {
+  margin-bottom: 30px;
+}
+
+.environment-alert {
+  border-radius: 12px;
+  border: 2px solid #f59e0b;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.warning-content {
+  padding: 10px 0;
+}
+
+.warning-content p {
+  margin: 8px 0;
+  line-height: 1.6;
+  color: #92400e;
+}
+
+.warning-content p strong {
+  color: #78350f;
+  font-weight: 600;
+}
+
+.warning-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.warning-actions .el-button {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.warning-actions .el-button:first-child {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+.warning-actions .el-button:first-child:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.warning-actions .el-button:last-child {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  border-color: #6b7280;
+  color: #ffffff;
+}
+
+.warning-actions .el-button:last-child:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
 }
 
 .step-content {

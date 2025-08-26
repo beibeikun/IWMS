@@ -18,6 +18,13 @@ const { contextBridge, ipcRenderer } = require('electron')
 // 这样可以避免直接暴露 Node.js 模块，提高安全性
 contextBridge.exposeInMainWorld('electronAPI', {
   /**
+   * 检测是否为 Electron 环境
+   * 用于判断当前是否在 Electron 应用中运行
+   * 
+   * @returns {boolean} 如果在 Electron 环境中返回 true，否则返回 false
+   */
+  isElectron: () => true,
+  /**
    * 选择文件夹
    * 打开系统文件夹选择对话框，返回用户选择的文件夹路径
    * 
