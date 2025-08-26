@@ -605,8 +605,12 @@ export default {
     
     const exportPreviewResults = async () => {
       try {
-        const reportPath = await window.electronAPI.exportResults(previewResults.value, form.outputPath)
-        ElMessage.success(`预览报告已导出到: ${reportPath}`)
+        const result = await window.electronAPI.exportResults(previewResults.value, form.outputPath)
+        if (result.success) {
+          ElMessage.success(`预览报告已导出到: ${result.reportPath}`)
+        } else {
+          ElMessage.error(`导出报告失败: ${result.error || result.message}`)
+        }
       } catch (error) {
         ElMessage.error(`导出报告失败: ${error.message}`)
       }
@@ -622,8 +626,12 @@ export default {
           return
         }
         
-        const reportPath = await window.electronAPI.exportResults(executionResults.value, targetPath)
-        ElMessage.success(`执行报告已导出到: ${reportPath}`)
+        const result = await window.electronAPI.exportResults(executionResults.value, targetPath)
+        if (result.success) {
+          ElMessage.success(`执行报告已导出到: ${result.reportPath}`)
+        } else {
+          ElMessage.error(`导出报告失败: ${result.error || result.message}`)
+        }
       } catch (error) {
         ElMessage.error(`导出报告失败: ${error.message}`)
       }

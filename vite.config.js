@@ -43,7 +43,27 @@ export default defineConfig({
           build: {
             // 主进程构建输出目录
             outDir: 'dist-electron',
+            rollupOptions: {
+              // 确保所有依赖都被包含在构建中
+              external: ['electron'],
+            },
           },
+          resolve: {
+            // 确保模块路径正确解析
+            alias: {
+              '@': '/Users/bbk/Documents/code/IWMS'
+            }
+          },
+          // 确保所有文件都被包含在构建中
+          optimizeDeps: {
+            include: [
+              './electron/utils/fileNameParser.js',
+              './electron/utils/fileScanner.js',
+              './electron/utils/excelProcessor.js',
+              './electron/utils/reportExporter.js',
+              './electron/services/renameService.js'
+            ]
+          }
         },
       },
       {
@@ -57,6 +77,10 @@ export default defineConfig({
           build: {
             // 预加载脚本构建输出目录
             outDir: 'dist-electron',
+            rollupOptions: {
+              // 确保所有依赖都被包含在构建中
+              external: ['electron'],
+            },
           },
         },
       },
