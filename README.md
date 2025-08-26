@@ -61,8 +61,11 @@ IWMS/
 │   ├── pom.xml                   # Maven 配置
 │   └── Dockerfile                # 容器化配置
 ├── 📚 docs/                       # 项目文档
-├── 📄 ARCHITECTURE.md             # 架构说明文档
-└── 📄 README.md                   # 项目说明文档
+│   ├── architecture/             # 架构文档
+│   └── development/              # 开发文档
+├── 🚀 start-all.sh               # 一键启动所有服务
+├── 🛑 stop-all.sh                # 一键停止所有服务
+└── 📄 README.md                  # 项目说明文档
 ```
 
 ## ✨ 功能特性
@@ -94,126 +97,95 @@ IWMS/
 - **Java**: 17+ (后端服务)
 - **Maven**: 3.6+ (后端构建)
 
-### 1. 启动后端服务
+### 🎯 一键启动所有服务
 ```bash
-# 进入后端目录
-cd backend
+# 启动所有服务（推荐）
+./start-all.sh
 
-# 启动Spring Boot服务
-./start.sh
-# 或使用Maven
-mvn spring-boot:run
+# 或者使用npm命令
+npm run dev:all
 ```
 
-### 2. 启动Web管理界面
+### 🔧 单独启动服务
 ```bash
-# 进入Web管理界面目录
-cd web-admin
+# 启动后端服务
+npm run dev:backend
 
-# 安装依赖
-npm install
+# 启动Web管理界面
+npm run dev:web
 
-# 启动开发服务器
-npm run dev
+# 启动桌面应用
+npm run dev:desktop
 ```
 
-### 3. 启动桌面应用
+### 🛑 停止所有服务
 ```bash
-# 进入桌面应用目录
-cd frontend
+# 停止所有服务
+./stop-all.sh
 
-# 安装依赖
-npm install
-
-# 启动开发环境
-npm run electron:dev:fallback
+# 或者使用npm命令
+npm run stop:all
 ```
-
-## 🌐 访问地址
-
-| 服务 | 地址 | 说明 |
-|------|------|------|
-| **桌面应用** | 桌面窗口 | Electron桌面应用 |
-| **Web管理界面** | http://localhost:3000 | Vue 3管理界面 |
-| **后端API** | http://localhost:8080/api | Spring Boot服务 |
-| **健康检查** | http://localhost:8080/api/actuator/health | 服务状态监控 |
-| **H2数据库** | http://localhost:8080/api/h2-console | 数据库管理 |
-
-## 📦 应用打包
-
-### 桌面应用打包
-```bash
-cd frontend
-
-# 一键构建所有平台
-npm run build:all
-
-# 平台特定打包
-npm run build:mac-arm    # macOS ARM64
-npm run build:mac-x64    # macOS x64
-npm run build:win-x64    # Windows x64
-npm run build:linux      # Linux
-```
-
-### 后端服务打包
-```bash
-cd backend
-
-# Maven打包
-mvn clean package
-
-# Docker构建
-docker build -t iwms-backend .
-```
-
-## 🔧 开发指南
-
-### 桌面应用开发
-- 基于Electron + Vue 3
-- 支持热重载开发
-- 模块化架构设计
-
-### Web界面开发
-- 基于Vue 3 + Element Plus
-- 响应式设计
-- 组件化开发
-
-### 后端服务开发
-- 基于Spring Boot 3.2
-- RESTful API设计
-- 数据持久化支持
 
 ## 📚 详细文档
 
-- [📋 项目架构说明](ARCHITECTURE.md) - 完整的架构设计文档
-- [🖥️ 桌面应用文档](frontend/README.md) - 桌面应用使用说明
-- [🌐 Web界面文档](web-admin/README.md) - Web管理界面说明
-- [🔧 后端服务文档](backend/README.md) - 后端服务详细文档
+- **📋 [项目架构](docs/architecture/ARCHITECTURE.md)** - 系统架构详细说明
+- **🏗️ [项目结构](docs/architecture/PROJECT_STRUCTURE.md)** - 目录结构说明
+- **🔄 [重构总结](docs/architecture/REFACTOR_SUMMARY.md)** - 项目重构历程
+- **🔧 [故障排除](docs/development/TROUBLESHOOTING.md)** - 常见问题解决方案
+- **🔒 [安全指南](docs/development/SECURITY.md)** - 安全配置和最佳实践
+- **📝 [贡献指南](docs/development/CONTRIBUTING.md)** - 如何参与项目开发
+- **📋 [行为准则](docs/development/CODE_OF_CONDUCT.md)** - 社区行为规范
 
-## 🤝 贡献指南
+## 🌐 服务访问
 
-1. Fork项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建Pull Request
+启动成功后，可以通过以下地址访问各服务：
+
+- **🖥️ 桌面应用**: 自动打开Electron窗口
+- **🌐 Web管理界面**: http://localhost:3000
+- **🔧 后端API**: http://localhost:8080/api
+- **📊 健康检查**: http://localhost:8080/api/actuator/health
+- **🗄️ H2数据库**: http://localhost:8080/api/h2-console
+
+## 🛠️ 开发指南
+
+### 安装依赖
+```bash
+# 安装所有依赖
+npm run install:all
+
+# 单独安装
+npm run install:desktop  # 桌面应用依赖
+npm run install:web      # Web界面依赖
+```
+
+### 构建项目
+```bash
+# 构建所有项目
+npm run build:all
+
+# 单独构建
+npm run build:desktop  # 构建桌面应用
+npm run build:web      # 构建Web界面
+npm run build:backend  # 构建后端服务
+```
+
+## 🤝 贡献
+
+欢迎贡献代码！请查看 [贡献指南](docs/development/CONTRIBUTING.md) 了解详情。
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-## 🆘 技术支持
+## 🙏 致谢
 
-如果您在使用过程中遇到问题，请：
-
-1. 查看 [📚 文档](docs/)
-2. 搜索 [Issues](../../issues)
-3. 创建新的 [Issue](../../issues/new)
+感谢所有为这个项目做出贡献的开发者！
 
 ---
 
 <div align="center">
 
-**IWMS - 让文件管理更智能，让工作更高效！** 🚀
+**IWMS - 让文件管理更智能** 🚀
 
 </div>
