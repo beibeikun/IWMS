@@ -43,13 +43,68 @@
               </div>
             </el-menu-item>
             
-            <el-menu-item index="file-operations" disabled>
-              <div class="menu-item-content">
-                <el-icon><Operation /></el-icon>
-                <span>文件操作</span>
-              </div>
-              <el-tag size="small" type="info">即将推出</el-tag>
-            </el-menu-item>
+            <el-sub-menu index="file-operations">
+              <template #title>
+                <div class="menu-item-content">
+                  <el-icon><Operation /></el-icon>
+                  <span>文件操作</span>
+                </div>
+              </template>
+              
+              <el-menu-item index="file-operations-main">
+                <div class="submenu-item-content">
+                  <el-icon><Grid /></el-icon>
+                  <span>功能概览</span>
+                </div>
+              </el-menu-item>
+              
+              <el-menu-item index="file-operations-organize">
+                <div class="submenu-item-content">
+                  <el-icon><Sort /></el-icon>
+                  <span>整理排序</span>
+                </div>
+              </el-menu-item>
+              
+              <el-menu-item index="file-operations-move" disabled>
+                <div class="submenu-item-content">
+                  <el-icon><FolderOpened /></el-icon>
+                  <span>批量移动</span>
+                </div>
+                <el-tag size="small" type="info">即将推出</el-tag>
+              </el-menu-item>
+              
+              <el-menu-item index="file-operations-copy" disabled>
+                <div class="submenu-item-content">
+                  <el-icon><CopyDocument /></el-icon>
+                  <span>批量复制</span>
+                </div>
+                <el-tag size="small" type="info">即将推出</el-tag>
+              </el-menu-item>
+              
+              <el-menu-item index="file-operations-dedupe" disabled>
+                <div class="submenu-item-content">
+                  <el-icon><Delete /></el-icon>
+                  <span>文件去重</span>
+                </div>
+                <el-tag size="small" type="info">即将推出</el-tag>
+              </el-menu-item>
+              
+              <el-menu-item index="file-operations-classify" disabled>
+                <div class="submenu-item-content">
+                  <el-icon><Grid /></el-icon>
+                  <span>智能分类</span>
+                </div>
+                <el-tag size="small" type="info">即将推出</el-tag>
+              </el-menu-item>
+              
+              <el-menu-item index="file-operations-sync" disabled>
+                <div class="submenu-item-content">
+                  <el-icon><Refresh /></el-icon>
+                  <span>文件同步</span>
+                </div>
+                <el-tag size="small" type="info">即将推出</el-tag>
+              </el-menu-item>
+            </el-sub-menu>
             
             <el-menu-item index="repository-related" disabled>
               <div class="menu-item-content">
@@ -137,6 +192,8 @@ export default {
     const activeMenu = computed(() => {
       const path = route.path
       if (path === '/') return 'home'
+      if (path === '/file-operations') return 'file-operations-main'
+      if (path === '/file-operations/organize') return 'file-operations-organize'
       return path.substring(1) // 移除开头的 '/'
     })
     
@@ -160,7 +217,8 @@ export default {
       const routeMap = {
         'home': '/',
         'batch-rename': '/batch-rename',
-        'file-operations': '/file-operations',
+        'file-operations-main': '/file-operations',
+        'file-operations-organize': '/file-operations/organize',
         'repository-related': '/repository-related',
         'generate-form': '/generate-form',
         'delete-from-repo': '/delete-from-repo',
@@ -169,7 +227,7 @@ export default {
       
       const targetRoute = routeMap[index]
       if (targetRoute) {
-        if (['file-operations', 'repository-related', 'generate-form', 'delete-from-repo'].includes(index)) {
+        if (['repository-related', 'generate-form', 'delete-from-repo', 'file-operations-move', 'file-operations-copy', 'file-operations-dedupe', 'file-operations-classify', 'file-operations-sync'].includes(index)) {
           ElMessage.info('该功能即将推出，敬请期待！')
           return
         } else {
@@ -487,6 +545,130 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 子菜单样式 */
+.sidebar-menu .el-sub-menu {
+  margin: 4px 8px;
+}
+
+.sidebar-menu .el-sub-menu .el-sub-menu__title {
+  height: 50px;
+  line-height: 50px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  color: #9ca3af;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-menu .el-sub-menu .el-sub-menu__title:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(5px);
+}
+
+.sidebar-menu .el-sub-menu.is-active .el-sub-menu__title {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-color: #60a5fa;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.sidebar-menu .el-sub-menu .el-menu {
+  background-color: #1f2937;
+  border: none;
+  padding: 8px 0;
+}
+
+.sidebar-menu .el-sub-menu .el-menu-item {
+  height: 40px;
+  line-height: 40px;
+  margin: 2px 8px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  color: #9ca3af;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.sidebar-menu .el-sub-menu .el-menu-item:hover {
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(3px);
+}
+
+.sidebar-menu .el-sub-menu .el-menu-item.is-active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-color: #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+.sidebar-menu .el-sub-menu .el-menu-item.is-disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sidebar-menu .el-sub-menu .el-menu-item.is-disabled:hover {
+  background-color: transparent;
+  transform: none;
+}
+
+.submenu-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 折叠状态下的子菜单样式 */
+.sidebar.collapsed .el-sub-menu .el-menu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  min-width: 200px;
+  background-color: #1f2937;
+  border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: none;
+}
+
+.sidebar.collapsed .el-sub-menu:hover .el-menu {
+  display: block;
+}
+
+.sidebar.collapsed .el-sub-menu .el-menu-item {
+  height: 40px;
+  line-height: 40px;
+  margin: 2px 8px;
+  border-radius: 6px;
+  color: #9ca3af;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.sidebar.collapsed .el-sub-menu .el-menu-item:hover {
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar.collapsed .el-sub-menu .el-menu-item.is-active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-color: #60a5fa;
 }
 
 /* 主内容区域样式 */

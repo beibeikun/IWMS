@@ -17,6 +17,7 @@ const { scanDirectory } = require('./utils/fileScanner.js')
 const { readExcelMapping } = require('./utils/excelProcessor.js')
 const { previewFileChanges, processFiles } = require('./services/renameService.js')
 const { exportResultsToCSV } = require('./utils/reportExporter.js')
+const { organizeFiles, previewRenamePlan } = require('./utils/fileOrganizer.js')
 
 let mainWindow
 
@@ -26,7 +27,7 @@ let mainWindow
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 1000,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -159,6 +160,46 @@ ipcMain.handle('scan-files', async (event, inputPath, recursive, fileTypes) => {
     return files
   } catch (error) {
     throw new Error(`扫描文件失败: ${error.message}`)
+  }
+})
+
+/**
+ * 获取文件统计信息
+ */
+ipcMain.handle('get-file-stats', async (event, filePath) => {
+  try {
+    const stats = await fs.stat(filePath)
+    return {
+      size: stats.size,
+      mtime: stats.mtime.getTime(),
+      birthtime: stats.birthtime.getTime(),
+      isFile: stats.isFile(),
+      isDirectory: stats.isDirectory()
+    }
+  } catch (error) {
+    throw new Error(`获取文件统计信息失败: ${error.message}`)
+  }
+})
+
+/**
+ * 预览文件整理计划
+ */
+ipcMain.handle('preview-file-organize', async (event, { files, primaryNoIndex }) => {
+  try {
+    return previewRenamePlan(files, primaryNoIndex)
+  } catch (error) {
+    throw new Error(`预览文件整理计划失败: ${error.message}`)
+  }
+})
+
+/**
+ * 执行文件整理
+ */
+ipcMain.handle('execute-file-organize', async (event, { files, folderPath, primaryNoIndex }) => {
+  try {
+    return await organizeFiles(files, folderPath, primaryNoIndex)
+  } catch (error) {
+    throw new Error(`执行文件整理失败: ${error.message}`)
   }
 })
 

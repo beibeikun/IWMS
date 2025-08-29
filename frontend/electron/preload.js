@@ -61,6 +61,38 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanFiles: (inputPath, recursive, fileTypes) => ipcRenderer.invoke('scan-files', inputPath, recursive, fileTypes),
 
   /**
+   * 获取文件统计信息
+   * 获取指定文件的详细信息，包括大小、修改时间等
+   * 
+   * @param {string} filePath - 文件路径
+   * @returns {Promise<Object>} 文件统计信息对象
+   */
+  getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
+
+  /**
+   * 预览文件整理计划
+   * 预览文件重命名和排序的详细计划
+   * 
+   * @param {Object} params - 预览参数
+   * @param {Array} params.files - 文件列表
+   * @param {boolean} params.primaryNoIndex - 主图无序号模式
+   * @returns {Promise<Object>} 预览结果
+   */
+  previewFileOrganize: (params) => ipcRenderer.invoke('preview-file-organize', params),
+
+  /**
+   * 执行文件整理
+   * 执行文件重命名和排序操作
+   * 
+   * @param {Object} params - 执行参数
+   * @param {Array} params.files - 文件列表
+   * @param {string} params.folderPath - 文件夹路径
+   * @param {boolean} params.primaryNoIndex - 主图无序号模式
+   * @returns {Promise<Object>} 执行结果
+   */
+  executeFileOrganize: (params) => ipcRenderer.invoke('execute-file-organize', params),
+
+  /**
    * 处理文件
    * 执行文件批量操作，包括重命名、压缩等
    * 

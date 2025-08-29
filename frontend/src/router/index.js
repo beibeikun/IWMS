@@ -37,8 +37,15 @@ const routes = [
     name: 'FileOperations',
     component: () => import('../views/FileOperations.vue'),
     meta: {
-      title: '文件操作 - IWMS',
-      disabled: true
+      title: '文件操作 - IWMS'
+    }
+  },
+  {
+    path: '/file-operations/organize',
+    name: 'FileOrganize',
+    component: () => import('../views/FileOrganize.vue'),
+    meta: {
+      title: '整理排序 - IWMS'
     }
   },
   {
