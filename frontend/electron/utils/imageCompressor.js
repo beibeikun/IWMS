@@ -22,9 +22,10 @@ const configManager = require('./configManager')
  * @param {Array} params.imageTasks - 图片任务数组
  * @param {number} params.maxFileSize - 最大文件大小（KB）
  * @param {boolean} params.useMultiThread - 是否使用多线程
+ * @param {number} params.maxThreads - 最大线程数
  * @returns {Object} 压缩结果和统计信息
  */
-async function compressImagesBatch({ imageTasks, maxFileSize, useMultiThread = true }) {
+async function compressImagesBatch({ imageTasks, maxFileSize, useMultiThread = true, maxThreads = null }) {
   try {
     if (!maxFileSize || maxFileSize <= 0) {
       // 不压缩，直接复制所有文件
@@ -44,7 +45,7 @@ async function compressImagesBatch({ imageTasks, maxFileSize, useMultiThread = t
     }
 
     if (useMultiThread && imageTasks.length > 1 && configManager.getCurrentConfig().imageProcessing.enableMultiThread) {
-      return await compressImagesMultiThread(imageTasks, maxFileSize)
+      return await compressImagesMultiThread(imageTasks, maxFileSize, maxThreads)
     } else {
       return await compressImagesSingleThread(imageTasks, maxFileSize)
     }
@@ -60,9 +61,10 @@ async function compressImagesBatch({ imageTasks, maxFileSize, useMultiThread = t
  * @param {Array} params.imageTasks - 图片任务数组
  * @param {number} params.maxDimension - 最大尺寸
  * @param {boolean} params.useMultiThread - 是否使用多线程
+ * @param {number} params.maxThreads - 最大线程数
  * @returns {Object} 压缩结果和统计信息
  */
-async function compressImagesBatchByDimension({ imageTasks, maxDimension, useMultiThread = true }) {
+async function compressImagesBatchByDimension({ imageTasks, maxDimension, useMultiThread = true, maxThreads = null }) {
   try {
     if (!maxDimension || maxDimension <= 0) {
       // 不压缩，直接复制所有文件
@@ -82,7 +84,7 @@ async function compressImagesBatchByDimension({ imageTasks, maxDimension, useMul
     }
 
     if (useMultiThread && imageTasks.length > 1 && configManager.getCurrentConfig().imageProcessing.enableMultiThread) {
-      return await compressImagesByDimensionMultiThread(imageTasks, maxDimension)
+      return await compressImagesByDimensionMultiThread(imageTasks, maxDimension, maxThreads)
     } else {
       return await compressImagesByDimensionSingleThread(imageTasks, maxDimension)
     }
@@ -148,11 +150,16 @@ async function compressImagesByDimensionSingleThread(imageTasks, maxDimension) {
 /**
  * 多线程按文件大小压缩
  */
-async function compressImagesMultiThread(imageTasks, maxFileSize) {
+async function compressImagesMultiThread(imageTasks, maxFileSize, maxThreads) {
   const startTime = Date.now()
   const numCPUs = require('os').cpus().length
-  // 使用配置管理器中的线程数设置
-  const numThreads = Math.min(numCPUs, imageTasks.length, configManager.getCurrentConfig().imageProcessing.maxThreads)
+  
+  // 优先使用传递的参数，其次使用配置管理器的设置
+  const config = configManager.getCurrentConfig()
+  const effectiveMaxThreads = maxThreads || config.imageProcessing.maxThreads
+  const numThreads = Math.min(numCPUs, imageTasks.length, effectiveMaxThreads)
+  
+  console.log(`🧵 多线程压缩配置: CPU核心数=${numCPUs}, 任务数=${imageTasks.length}, 配置线程数=${effectiveMaxThreads}, 实际使用=${numThreads}`)
   
   const results = await Promise.all(
     imageTasks.map((task, index) => {
@@ -194,11 +201,16 @@ async function compressImagesMultiThread(imageTasks, maxFileSize) {
 /**
  * 多线程按尺寸压缩
  */
-async function compressImagesByDimensionMultiThread(imageTasks, maxDimension) {
+async function compressImagesByDimensionMultiThread(imageTasks, maxDimension, maxThreads) {
   const startTime = Date.now()
   const numCPUs = require('os').cpus().length
-  // 使用配置管理器中的线程数设置
-  const numThreads = Math.min(numCPUs, imageTasks.length, configManager.getCurrentConfig().imageProcessing.maxThreads)
+  
+  // 优先使用传递的参数，其次使用配置管理器的设置
+  const config = configManager.getCurrentConfig()
+  const effectiveMaxThreads = maxThreads || config.imageProcessing.maxThreads
+  const numThreads = Math.min(numCPUs, imageTasks.length, effectiveMaxThreads)
+  
+  console.log(`🧵 多线程压缩配置: CPU核心数=${numCPUs}, 任务数=${imageTasks.length}, 配置线程数=${effectiveMaxThreads}, 实际使用=${numThreads}`)
   
   const results = await Promise.all(
     imageTasks.map((task, index) => {

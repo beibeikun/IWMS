@@ -289,10 +289,11 @@ async function processFiles({ inputPath, outputPath, mapping, files, conflictStr
         const compressionResult = await compressImagesBatchByDimension({
           imageTasks: batch,
           maxDimension: maxDimension,
-          useMultiThread: true
+          useMultiThread: config.imageProcessing.enableMultiThread,
+          maxThreads: config.imageProcessing.maxThreads
         })
       
-              if (compressionResult.success) {
+        if (compressionResult.success) {
           // 将压缩结果转换为正确的格式，并替换占位结果
           for (const compressResult of compressionResult.results) {
             const task = batch.find(t => t.inputPath === compressResult.filePath)
@@ -323,7 +324,8 @@ async function processFiles({ inputPath, outputPath, mapping, files, conflictStr
         const compressionResult = await compressImagesBatch({
           imageTasks: batch,
           maxFileSize: maxFileSize,
-          useMultiThread: true
+          useMultiThread: config.imageProcessing.enableMultiThread,
+          maxThreads: config.imageProcessing.maxThreads
         })
         
         if (compressionResult.success) {

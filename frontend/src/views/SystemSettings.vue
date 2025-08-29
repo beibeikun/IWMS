@@ -110,6 +110,22 @@
           </div>
         </el-form-item>
         
+        <el-form-item label="批次大小:">
+          <el-input-number 
+            v-model="settings.batchSize" 
+            :min="1" 
+            :max="50"
+            placeholder="设置每批处理的图片数量"
+            style="width: 200px"
+          >
+            <template #prepend>每批</template>
+            <template #append>张图片</template>
+          </el-input-number>
+          <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+            建议设置：内存 < 8GB 选择 5-8，内存 8-16GB 选择 8-12，内存 > 16GB 选择 12-15
+          </div>
+        </el-form-item>
+        
         <!-- 界面设置 -->
         <el-divider content-position="left">
           <span class="section-title">界面设置</span>
@@ -160,6 +176,7 @@ export default {
       defaultConflictStrategy: 'skip',
       maxThreads: 4,
       useMultiThread: true,
+      batchSize: 10, // 新增批次大小
       sidebarCollapsed: false,
       autoSaveSettings: true
     }
@@ -178,6 +195,7 @@ export default {
         defaultConflictStrategy: settings.defaultConflictStrategy,
         maxThreads: settings.maxThreads,
         useMultiThread: settings.useMultiThread,
+        batchSize: settings.batchSize, // 新增批次大小
         sidebarCollapsed: settings.sidebarCollapsed,
         autoSaveSettings: settings.autoSaveSettings
       }

@@ -33,6 +33,18 @@ function getSettingsPath() {
     console.log('⚠️ 测试设置文件未找到，使用默认配置')
   }
   
+  // 使用Electron标准的userData路径，与main.js保持一致
+  try {
+    // 尝试获取Electron的userData路径
+    const { app } = require('electron')
+    if (app && app.getPath) {
+      return path.join(app.getPath('userData'), 'settings.json')
+    }
+  } catch (error) {
+    console.log('⚠️ 无法获取Electron userData路径，使用备用路径')
+  }
+  
+  // 备用路径：使用传统的系统路径
   const platform = os.platform()
   let settingsDir
   

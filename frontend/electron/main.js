@@ -340,6 +340,8 @@ ipcMain.handle('load-settings', async () => {
       defaultFileTypes: 'image',
       defaultRecursive: true,
       defaultConflictStrategy: 'skip',
+      maxThreads: 4,
+      batchSize: 10,
       useMultiThread: true,
       sidebarCollapsed: false,
       autoSaveSettings: true
