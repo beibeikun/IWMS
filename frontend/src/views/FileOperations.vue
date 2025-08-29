@@ -93,24 +93,7 @@
       </el-card>
     </div>
 
-    <!-- 快速操作区域 -->
-    <div class="quick-actions">
-      <h2>快速操作</h2>
-      <div class="action-buttons">
-        <el-button type="primary" @click="navigateToOrganize">
-          <el-icon><Sort /></el-icon>
-          开始整理排序
-        </el-button>
-        <el-button @click="selectFolder">
-          <el-icon><FolderOpened /></el-icon>
-          选择文件夹
-        </el-button>
-        <el-button @click="showHelp">
-          <el-icon><QuestionFilled /></el-icon>
-          使用帮助
-        </el-button>
-      </div>
-    </div>
+    
   </div>
 </template>
 

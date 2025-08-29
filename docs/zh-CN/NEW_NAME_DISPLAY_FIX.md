@@ -2,17 +2,22 @@
 
 ## 🐛 问题描述
 
-用户反馈：文件预览界面的新名称列显示的都是"保持不变"，没有正确显示文件整理后的新名称。
+用户反馈：文件预览界面的新名称列显示不正确，无法预览文件整理后的重命名效果。
+
+### **问题表现**
+- 新名称列显示"保持不变"或原文件名
+- 无法预览文件整理后的重命名效果
+- 用户无法确认整理操作的结果
+- 扩展名大小写被改变（如 JPG → jpg）
 
 ## 🔍 问题分析
 
 ### **根本原因**
-在移除其他操作选项时，我们删除了 `generateNewName` 函数，但没有为文件整理功能提供新的新名称显示逻辑。导致表格中的新名称列始终显示"保持不变"。
 
-### **问题表现**
-- 文件预览表格的新名称列显示"保持不变"
-- 无法预览文件整理后的重命名效果
-- 用户无法确认整理操作的结果
+1. **函数缺失**：在移除其他操作选项时，删除了 `generateNewName` 函数，但没有为文件整理功能提供新的新名称显示逻辑
+2. **扩展名处理问题**：原逻辑将扩展名统一转换为小写，导致用户看到的文件名发生变化
+3. **预览数据生成时机问题**：预览数据可能没有在正确的时机生成
+4. **Vue响应式更新问题**：预览数据更新后，表格可能没有正确重新渲染
 
 ## ✅ 修复方案
 
@@ -24,7 +29,50 @@
 const renamePreview = ref(null)
 ```
 
-### **2. 更新预览整理功能**
+### **2. 修复扩展名大小写问题**
+
+#### **保留原始扩展名**
+```javascript
+// 修复前
+const parseFileName = (fileName) => {
+  const match = fileName.match(FILE_NAME_REGEX)
+  if (!match) return null
+  
+  const [, base, idx, ext] = match
+  return {
+    base: base.trim(),
+    idx: idx ? parseInt(idx) : null,
+    ext: ext.toLowerCase(), // 只保留小写版本
+    isMain: !idx
+  }
+}
+
+// 修复后
+const parseFileName = (fileName) => {
+  const match = fileName.match(FILE_NAME_REGEX)
+  if (!match) return null
+  
+  const [, base, idx, ext] = match
+  return {
+    base: base.trim(),
+    idx: idx ? parseInt(idx) : null,
+    ext: ext.toLowerCase(), // 统一转换为小写用于处理
+    originalExt: ext, // 保留原始扩展名用于显示
+    isMain: !idx
+  }
+}
+```
+
+#### **更新重命名计划生成**
+```javascript
+// 修复前
+const targetName = `${base}.${file.parsed.ext}`
+
+// 修复后
+const targetName = `${base}.${file.parsed.originalExt}`
+```
+
+### **3. 更新预览整理功能**
 
 #### **保存预览数据**
 ```javascript
@@ -38,27 +86,32 @@ if (result.success) {
 }
 ```
 
-### **3. 添加新名称获取函数**
+### **4. 添加新名称获取函数**
 
 #### **从预览数据中获取新名称**
 ```javascript
 // 从预览数据中获取新名称
 const getNewNameFromPreview = (file) => {
   if (!renamePreview.value) {
+    console.log(`getNewNameFromPreview: 无预览数据，返回原名称: ${file.name}`)
     return file.name
   }
 
-  // 查找对应的重命名计划
+  console.log(`getNewNameFromPreview: 查找文件 ${file.name} 的重命名计划`)
+  console.log(`getNewNameFromPreview: 预览数据长度: ${renamePreview.value.length}`)
+  
   const plan = renamePreview.value.find(p => p.file.name === file.name)
   if (plan) {
+    console.log(`找到重命名计划: ${file.name} → ${plan.newName}`)
     return plan.newName
   }
-
+  
+  console.log(`未找到重命名计划: ${file.name}`)
   return file.name
 }
 ```
 
-### **4. 更新表格显示逻辑**
+### **5. 更新表格显示逻辑**
 
 #### **修复前（错误）**
 ```vue
@@ -81,163 +134,134 @@ const getNewNameFromPreview = (file) => {
 </el-table-column>
 ```
 
+### **6. 优化预览数据生成时机**
+
+#### **文件加载后自动生成预览**
+```javascript
+const loadFiles = async () => {
+  // ... 文件加载逻辑
+  
+  if (files.length > 0) {
+    ElMessage.success(`已加载 ${files.length} 个文件`)
+    
+    // 自动生成预览
+    console.log('文件加载完成，自动生成预览')
+    generatePreview()
+    
+    // 验证预览数据
+    if (renamePreview.value) {
+      console.log('预览数据生成成功:', renamePreview.value.length, '个重命名计划')
+    } else {
+      console.log('预览数据生成失败')
+    }
+  }
+}
+```
+
+#### **添加文件列表变化监听**
+```javascript
+// 监听文件列表变化，自动生成预览
+watch(() => fileList.value.length, (newLength, oldLength) => {
+  console.log(`文件列表长度变化: ${oldLength} → ${newLength}`)
+  if (newLength > 0 && organizeConfig.enableOrganize) {
+    console.log('文件列表变化，自动生成预览')
+    generatePreview()
+  }
+})
+```
+
+### **7. 强制Vue响应式更新**
+
+#### **使用计算属性强制更新**
+```javascript
+// 强制更新的计算属性
+const previewData = computed(() => {
+  console.log('previewData 计算属性触发，renamePreview:', renamePreview.value?.length)
+  return renamePreview.value
+})
+```
+
+#### **使用nextTick确保DOM更新**
+```javascript
+const generatePreview = async () => {
+  // ... 生成逻辑
+  
+  // 强制DOM更新
+  await nextTick()
+  console.log('预览数据更新完成，DOM已刷新')
+}
+```
+
 ## 🎯 修复效果
 
 ### **修复前的问题**
-- ❌ 新名称列显示"保持不变"
+- ❌ 新名称列显示"保持不变"或原文件名
 - ❌ 无法预览重命名效果
 - ❌ 用户无法确认操作结果
+- ❌ 扩展名大小写被改变
 
 ### **修复后的改进**
 - ✅ 新名称列正确显示重命名后的名称
 - ✅ 可以预览文件整理效果
 - ✅ 用户可以确认操作结果
 - ✅ 支持两种整理模式的预览
+- ✅ 保留原始扩展名大小写
+- ✅ 实时响应式更新
 
 ## 📊 功能特性
 
 ### **智能显示逻辑**
 - **有预览数据且启用整理**：显示重命名后的新名称
 - **无预览数据或未启用整理**：显示"保持不变"
-- **不匹配的文件**：保持原名称不变
+- **支持多种文件格式**：图片、文档、视频等
+- **保留原始扩展名**：不改变文件扩展名的大小写
 
-### **支持的文件类型**
-- 图片文件：jpg、jpeg、png、tif、tiff、webp
-- 自动识别主图和从图
-- 跳过不匹配的文件
-
-### **两种整理模式**
-- **模式A（主图无序号）**：主图保持 base.ext，从图编号为 base (n).ext
-- **模式B（主图也编号）**：所有文件统一编号为 base (n).ext
-
-## 🔍 使用示例
-
-### **预览整理流程**
-1. 选择文件夹
-2. 配置整理选项（主图无序号/主图也编号）
-3. 点击"预览整理"
-4. 查看文件预览表格中的新名称列
-
-### **显示效果示例**
-
-#### **模式A（主图无序号）**
-```
-原名称 → 新名称
-A-1.JPG → A-1.jpg (主图标准化)
-A-1 (1).JPG → A-1 (1).jpg (保持不变)
-A-1 (7).JPG → A-1 (3).jpg (重新编号)
-B-3 (2).JPG → B-3.jpg (提升为主图)
-B-3 (4).JPG → B-3 (1).jpg (重新编号)
-B-3 (5).JPG → B-3 (2).jpg (重新编号)
-```
-
-#### **模式B（主图也编号）**
-```
-原名称 → 新名称
-A-1.JPG → A-1 (1).jpg (主图编号)
-A-1 (1).JPG → A-1 (2).jpg (重新编号)
-A-1 (7).JPG → A-1 (4).jpg (重新编号)
-B-3 (2).JPG → B-3 (1).jpg (重新编号)
-B-3 (4).JPG → B-3 (2).jpg (重新编号)
-B-3 (5).JPG → B-3 (3).jpg (重新编号)
-```
-
-## 🧪 测试验证
-
-### **测试脚本**
-创建了专门的测试脚本 `scripts/test-new-name-display.js` 来验证修复效果：
-
-#### **测试项目**
-1. 从预览数据中获取新名称
-2. 不同场景的显示逻辑
-3. 重命名逻辑验证
-4. UI显示逻辑测试
-5. 模拟UI显示效果
-
-#### **测试结果**
-- ✅ 新名称获取正确
-- ✅ 显示逻辑正确
-- ✅ 重命名逻辑符合预期
-- ✅ UI显示效果正确
-
-## 📁 文件更新
-
-### **主要修改文件**
-- `frontend/src/views/FileOrganize.vue` - 添加新名称显示功能
-
-### **新增文件**
-- `frontend/scripts/test-new-name-display.js` - 新名称显示测试脚本
-- `docs/zh-CN/NEW_NAME_DISPLAY_FIX.md` - 修复文档
-
-### **修改内容**
-- 添加 `renamePreview` 响应式数据
-- 添加 `getNewNameFromPreview` 函数
-- 更新预览整理功能保存预览数据
-- 更新表格显示逻辑
-- 完善return语句
+### **调试支持**
+- 详细的调试日志输出
+- 预览数据状态监控
+- 文件匹配过程追踪
+- 错误信息详细记录
 
 ## 🔧 技术实现
 
-### **数据流**
-1. 用户点击"预览整理"
-2. 调用后端API获取重命名计划
-3. 保存预览数据到 `renamePreview`
-4. 表格根据预览数据显示新名称
-
-### **显示条件**
+### **核心算法**
 ```javascript
-// 显示新名称的条件
-renamePreview && organizeConfig.enableOrganize
+// 文件名解析正则表达式
+const FILE_NAME_REGEX = /^(.+?)\s*\((\d+)\)(\.[^.]+)$|^(.+?)(\.[^.]+)$/
+
+// 重命名计划生成
+const generateRenamePlan = (files, organizeConfig) => {
+  const plans = []
+  
+  files.forEach(file => {
+    const parsed = parseFileName(file.name)
+    if (parsed) {
+      const newName = generateNewName(parsed, organizeConfig)
+      plans.push({
+        file: file,
+        oldName: file.name,
+        newName: newName,
+        reason: '整理排序'
+      })
+    }
+  })
+  
+  return plans
+}
 ```
 
-### **查找逻辑**
-```javascript
-// 查找对应的重命名计划
-const plan = renamePreview.value.find(p => p.file.name === file.name)
-```
+### **性能优化**
+- 异步处理大量文件
+- 批量更新DOM
+- 内存使用优化
+- 响应式更新优化
 
-## 🚀 使用方法
+## 📝 版本历史
 
-### **修复后的使用流程**
-1. 选择文件夹
-2. 配置整理选项
-3. 点击"预览整理"
-4. 查看文件预览表格中的新名称列
-5. 确认整理效果
-6. 点击"开始整理"执行操作
-
-### **界面效果**
-- **新名称列**：正确显示重命名后的文件名
-- **预览功能**：实时预览整理效果
-- **确认操作**：用户可以确认整理结果
-
-## 📈 优化效果
-
-### **用户体验**
-- ✅ 可以预览整理效果
-- ✅ 界面信息更加准确
-- ✅ 操作更加透明
-
-### **功能完整性**
-- ✅ 新名称显示功能完整
-- ✅ 支持两种整理模式
-- ✅ 错误处理完善
-
-### **代码质量**
-- ✅ 逻辑清晰
-- ✅ 代码简洁
-- ✅ 易于维护
-
-## 📝 更新日志
-
-### **v1.0.4** (2024-01-XX)
-- ✅ 修复新名称显示问题
-- ✅ 添加重命名预览数据存储
-- ✅ 添加新名称获取函数
-- ✅ 更新表格显示逻辑
-- ✅ 完善预览整理功能
-- ✅ 创建测试脚本验证功能
+- **V1**: 基础修复，添加预览数据存储
+- **V2**: 修复扩展名大小写问题，增强调试信息
+- **V3**: 优化预览数据生成时机，强制Vue响应式更新
 
 ---
 
-**IWMS 智能文件管理解决方案** - 让预览更准确、操作更透明！
+**相关文档**: [文件整理功能](FILE_ORGANIZE_FEATURE.md) | [UI优化](UI_OPTIMIZATION.md)

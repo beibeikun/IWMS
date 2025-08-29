@@ -33,7 +33,7 @@
             <h3>选择文件夹</h3>
             <el-button @click="selectFolder" type="primary" style="width: 100%;">
               <el-icon><FolderOpened /></el-icon>
-              {{ selectedFolder || '选择文件夹' }}
+              选择文件夹
             </el-button>
             <div v-if="selectedFolder" class="folder-info">
               <p>已选择: {{ selectedFolder }}</p>
@@ -95,13 +95,7 @@
                 </el-select>
               </el-form-item>
 
-              <el-form-item label="最小文件大小 (KB)">
-                <el-input-number v-model="filterConfig.minSize" :min="0" style="width: 100%;" />
-              </el-form-item>
 
-              <el-form-item label="最大文件大小 (MB)">
-                <el-input-number v-model="filterConfig.maxSize" :min="0" style="width: 100%;" />
-              </el-form-item>
             </el-form>
           </div>
 
@@ -120,17 +114,7 @@
                 </div>
               </el-form-item>
 
-              <el-form-item>
-                <el-checkbox v-model="organizeConfig.enableOrganize">
-                  启用文件整理
-                </el-checkbox>
-              </el-form-item>
 
-              <el-form-item>
-                <el-checkbox v-model="organizeConfig.previewOnly">
-                  仅预览（不执行重命名）
-                </el-checkbox>
-              </el-form-item>
             </el-form>
           </div>
 
@@ -153,17 +137,13 @@
                   <el-icon><View /></el-icon>
                   强制生成预览
                 </el-button>
-                <el-button @click="previewSort" :disabled="!hasFiles" size="small">
-                  <el-icon><View /></el-icon>
-                  预览排序
-                </el-button>
               </div>
             </div>
           </template>
 
           <!-- 文件列表 -->
           <div v-if="fileList.length > 0" class="file-list">
-            <el-table :data="sortedFileList" style="width: 100%" height="500">
+            <el-table :data="sortedFileList" style="width: 100%" height="400">
               <el-table-column prop="name" label="文件名" min-width="200">
                 <template #default="{ row }">
                   <div class="file-name">
@@ -195,19 +175,66 @@
               
               <el-table-column prop="newName" label="新名称" min-width="200">
                 <template #default="{ row }">
-                  <span v-if="previewData && organizeConfig.enableOrganize">
+                  <span v-if="previewData">
                     {{ getNewNameFromPreview(row) }}
                   </span>
                   <span v-else>
                     {{ row.name }}
                   </span>
                   <!-- 调试信息 -->
-                  <div v-if="true" style="font-size: 10px; color: #999;">
-                    预览: {{ !!previewData }}, 启用: {{ organizeConfig.enableOrganize }}, 数据长度: {{ previewData?.length || 0 }}
+                  <div v-if="false" style="font-size: 10px; color: #999;">
+                    预览: {{ !!previewData }}, 数据长度: {{ previewData?.length || 0 }}
                   </div>
                 </template>
               </el-table-column>
             </el-table>
+            
+            <!-- 文件统计信息 -->
+            <div class="file-stats">
+              <el-row :gutter="20">
+                <el-col :span="6">
+                  <div class="stat-card">
+                    <div class="stat-number">{{ fileList.length }}</div>
+                    <div class="stat-label">总文件数</div>
+                  </div>
+                </el-col>
+                <el-col :span="6">
+                  <div class="stat-card">
+                    <div class="stat-number">{{ getGroupCount() }}</div>
+                    <div class="stat-label">文件组数</div>
+                  </div>
+                </el-col>
+                <el-col :span="6">
+                  <div class="stat-card">
+                    <div class="stat-number">{{ getRenameCount() }}</div>
+                    <div class="stat-label">重命名数</div>
+                  </div>
+                </el-col>
+                <el-col :span="6">
+                  <div class="stat-card">
+                    <div class="stat-number">{{ formatTotalSize() }}</div>
+                    <div class="stat-label">总大小</div>
+                  </div>
+                </el-col>
+              </el-row>
+            </div>
+            
+
+            
+            <!-- 重命名预览摘要 -->
+            <div v-if="previewData" class="rename-summary">
+              <h4>重命名预览摘要</h4>
+              <div class="summary-content">
+                <div v-for="(group, index) in getRenameGroups()" :key="index" class="group-summary">
+                  <div class="group-title">{{ group.base }}</div>
+                  <div class="group-files">
+                    <span v-for="file in group.files" :key="file.oldName" class="file-change">
+                      {{ file.oldName }} → {{ file.newName }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 空状态 -->
@@ -262,16 +289,12 @@ export default {
     })
 
     const filterConfig = reactive({
-      fileTypes: ['all'],
-      minSize: 0,
-      maxSize: 1000
+      fileTypes: ['all']
     })
 
     // 文件整理配置
     const organizeConfig = reactive({
-      primaryNoIndex: true, // 主图无序号模式
-      enableOrganize: true, // 启用文件整理
-      previewOnly: false    // 仅预览模式
+      primaryNoIndex: true // 主图无序号模式
     })
 
     // 文件名解析正则表达式
@@ -421,11 +444,10 @@ export default {
     const watchConfig = () => {
       console.log('watchConfig 触发:', {
         hasFiles: hasFiles.value,
-        enableOrganize: organizeConfig.enableOrganize,
         primaryNoIndex: organizeConfig.primaryNoIndex
       })
       
-      if (hasFiles.value && organizeConfig.enableOrganize) {
+      if (hasFiles.value) {
         console.log('触发 generatePreview')
         generatePreview()
       } else {
@@ -513,11 +535,11 @@ export default {
       
       loading.value = true
       try {
-        // 使用真实的文件扫描功能
+        // 使用真实的文件扫描功能 - 总是扫描所有文件，然后在前端过滤
         const filePaths = await window.electronAPI.scanFiles(
           selectedFolder.value, 
           false, // 不递归扫描
-          'all' // 扫描所有文件类型
+          'all' // 扫描所有文件，在前端进行类型过滤
         )
         
         // 获取文件详细信息
@@ -548,15 +570,21 @@ export default {
               fileType = 'audio'
             }
             
-            files.push({
-              name: fileName,
-              path: filePath,
-              size: stats.size || 0,
-              type: fileType,
-              mtime: new Date(stats.mtime || Date.now()),
-              ctime: new Date(stats.birthtime || Date.now()),
-              extension: fileExt
-            })
+            // 根据过滤配置过滤文件
+            const shouldInclude = filterConfig.fileTypes.includes('all') || 
+                                 filterConfig.fileTypes.includes(fileType)
+            
+            if (shouldInclude) {
+              files.push({
+                name: fileName,
+                path: filePath,
+                size: stats.size || 0,
+                type: fileType,
+                mtime: new Date(stats.mtime || Date.now()),
+                ctime: new Date(stats.birthtime || Date.now()),
+                extension: fileExt
+              })
+            }
           } catch (error) {
             console.warn(`获取文件信息失败: ${filePath}`, error.message)
           }
@@ -596,9 +624,7 @@ export default {
     const previewing = ref(false)
     const organizing = ref(false)
 
-    const previewSort = () => {
-      ElMessage.info('排序预览功能即将推出！')
-    }
+
 
     const forceGeneratePreview = () => {
       console.log('强制生成预览')
@@ -610,16 +636,65 @@ export default {
       }
     }
 
-    // 生成预览函数 - 使用前端逻辑
-    const generatePreview = () => {
-      console.log('generatePreview 调用:', { 
-        hasFiles: hasFiles.value, 
-        enableOrganize: organizeConfig.enableOrganize,
-        fileCount: fileList.value.length 
+    // 获取文件组数
+    const getGroupCount = () => {
+      if (!previewData.value) return 0
+      const groups = new Set()
+      previewData.value.forEach(plan => {
+        const parsed = parseFileName(plan.file.name)
+        if (parsed) {
+          groups.add(parsed.base)
+        }
+      })
+      return groups.size
+    }
+
+    // 获取重命名数量
+    const getRenameCount = () => {
+      if (!previewData.value) return 0
+      return previewData.value.filter(plan => plan.oldName !== plan.newName).length
+    }
+
+    // 格式化总大小
+    const formatTotalSize = () => {
+      const totalBytes = fileList.value.reduce((sum, file) => sum + file.size, 0)
+      return formatFileSize(totalBytes)
+    }
+
+    // 获取重命名组信息
+    const getRenameGroups = () => {
+      if (!previewData.value) return []
+      
+      const groups = new Map()
+      previewData.value.forEach(plan => {
+        const parsed = parseFileName(plan.file.name)
+        if (parsed) {
+          if (!groups.has(parsed.base)) {
+            groups.set(parsed.base, [])
+          }
+          groups.get(parsed.base).push({
+            oldName: plan.oldName,
+            newName: plan.newName,
+            reason: plan.reason
+          })
+        }
       })
       
-      if (!hasFiles.value || !organizeConfig.enableOrganize) {
-        console.log('generatePreview 跳过：无文件或未启用整理')
+      return Array.from(groups.entries()).map(([base, files]) => ({
+        base,
+        files
+      }))
+    }
+
+    // 生成预览函数 - 使用前端逻辑
+    const generatePreview = () => {
+              console.log('generatePreview 调用:', { 
+          hasFiles: hasFiles.value, 
+          fileCount: fileList.value.length 
+        })
+        
+        if (!hasFiles.value) {
+        console.log('generatePreview 跳过：无文件')
         renamePreview.value = null
         return
       }
@@ -679,11 +754,6 @@ export default {
         return
       }
 
-      if (!organizeConfig.enableOrganize) {
-        ElMessage.warning('请先启用文件整理功能')
-        return
-      }
-
       previewing.value = true
       try {
         // 使用前端逻辑生成预览
@@ -724,11 +794,6 @@ export default {
     const startOrganize = async () => {
       if (!selectedFolder.value || !hasFiles.value) {
         ElMessage.warning('请先选择文件夹并确保有文件')
-        return
-      }
-
-      if (!organizeConfig.enableOrganize) {
-        ElMessage.warning('请先启用文件整理功能')
         return
       }
 
@@ -853,12 +918,20 @@ export default {
 
     // 添加监听器
     watch(() => organizeConfig.primaryNoIndex, watchConfig)
-    watch(() => organizeConfig.enableOrganize, watchConfig)
+    
+    // 监听文件类型过滤配置变化，重新加载文件
+    watch(() => filterConfig.fileTypes, () => {
+      console.log('文件类型过滤配置变化:', filterConfig.fileTypes)
+      if (selectedFolder.value) {
+        console.log('重新加载文件以应用新的过滤配置')
+        loadFiles()
+      }
+    })
     
     // 监听文件列表变化，自动生成预览
     watch(() => fileList.value.length, (newLength, oldLength) => {
       console.log(`文件列表长度变化: ${oldLength} → ${newLength}`)
-      if (newLength > 0 && organizeConfig.enableOrganize) {
+      if (newLength > 0) {
         console.log('文件列表变化，自动生成预览')
         generatePreview()
       }
@@ -887,14 +960,17 @@ export default {
       selectFolder,
       loadFiles,
       refreshFiles,
-      previewSort,
       forceGeneratePreview,
       previewOrganize,
       startOrganize,
       getFileIcon,
       formatFileSize,
       formatDate,
-      getNewNameFromPreview
+      getNewNameFromPreview,
+      getGroupCount,
+      getRenameCount,
+      formatTotalSize,
+      getRenameGroups
     }
   }
 }
@@ -969,6 +1045,142 @@ export default {
 
 .file-list {
   height: 100%;
+}
+
+.file-stats {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-number {
+  font-size: 24px;
+  font-weight: bold;
+  color: #409eff;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rename-summary {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.rename-summary h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.group-summary {
+  background: white;
+  padding: 15px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.group-title {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.group-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.file-change {
+  background: #e1f5fe;
+  color: #0277bd;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.quick-actions {
+  margin-top: 20px;
+}
+
+.action-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  height: 100%;
+}
+
+.action-card h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.status-item:last-child {
+  border-bottom: none;
+}
+
+.status-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.status-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.status-enabled {
+  color: #67c23a;
 }
 
 .file-name {
