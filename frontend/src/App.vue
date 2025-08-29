@@ -449,6 +449,8 @@ body {
   border-radius: 12px;
   position: relative;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  color: #9ca3af;
+  border: 1px solid transparent;
 }
 
 .sidebar.collapsed .el-menu-item .el-icon {
@@ -464,6 +466,9 @@ body {
 }
 
 .sidebar.collapsed .el-menu-item:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.15);
   transform: translateX(3px) scale(1.05);
   box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
 }
@@ -474,6 +479,9 @@ body {
 }
 
 .sidebar.collapsed .el-menu-item.is-active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-color: #60a5fa;
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
   animation: pulse 2s infinite;
 }
@@ -551,6 +559,11 @@ body {
 .sidebar.collapsed .el-sub-menu.is-active .el-sub-menu__title .el-icon {
   font-size: 24px;
   transform: scale(1.1);
+}
+
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title:not(.is-disabled):active {
+  transform: translateX(1px) scale(0.95);
+  transition: all 0.1s ease;
 }
 
 .sidebar.collapsed .el-sub-menu .el-sub-menu__title span {
