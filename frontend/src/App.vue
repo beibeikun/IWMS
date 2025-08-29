@@ -654,6 +654,12 @@ body {
   margin: 4px 8px;
 }
 
+/* FIX: 折叠态对齐 — 取消子菜单外层多余边距，避免与单项产生左右偏移 */
+.sidebar.collapsed .sidebar-menu .el-sub-menu {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .sidebar-menu .el-sub-menu .el-sub-menu__title {
   height: 50px;
   line-height: 50px;
