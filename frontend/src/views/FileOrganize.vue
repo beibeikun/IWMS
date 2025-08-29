@@ -149,6 +149,10 @@
                   <el-icon><Refresh /></el-icon>
                   刷新
                 </el-button>
+                <el-button @click="forceGeneratePreview" :disabled="!hasFiles" size="small">
+                  <el-icon><View /></el-icon>
+                  强制生成预览
+                </el-button>
                 <el-button @click="previewSort" :disabled="!hasFiles" size="small">
                   <el-icon><View /></el-icon>
                   预览排序
@@ -191,12 +195,16 @@
               
               <el-table-column prop="newName" label="新名称" min-width="200">
                 <template #default="{ row }">
-                  <span v-if="renamePreview && organizeConfig.enableOrganize">
+                  <span v-if="previewData && organizeConfig.enableOrganize">
                     {{ getNewNameFromPreview(row) }}
                   </span>
                   <span v-else>
                     {{ row.name }}
                   </span>
+                  <!-- 调试信息 -->
+                  <div v-if="true" style="font-size: 10px; color: #999;">
+                    预览: {{ !!previewData }}, 启用: {{ organizeConfig.enableOrganize }}, 数据长度: {{ previewData?.length || 0 }}
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -226,7 +234,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -271,6 +279,12 @@ export default {
 
     // 计算属性
     const hasFiles = computed(() => fileList.value.length > 0)
+    
+    // 强制更新的计算属性
+    const previewData = computed(() => {
+      console.log('previewData 计算属性触发，renamePreview:', renamePreview.value?.length)
+      return renamePreview.value
+    })
 
     // 前端文件整理逻辑
     const parseFileName = (fileName) => {
@@ -281,7 +295,8 @@ export default {
       return {
         base: base.trim(),
         idx: idx ? parseInt(idx) : null,
-        ext: ext.toLowerCase(),
+        ext: ext.toLowerCase(), // 统一转换为小写用于处理
+        originalExt: ext, // 保留原始扩展名用于显示
         isMain: !idx
       }
     }
@@ -315,7 +330,7 @@ export default {
       // 1. 处理主图
       if (mainFile) {
         // 主图已存在，保持不变
-        const targetName = `${base}.${mainFile.parsed.ext}`
+        const targetName = `${base}.${mainFile.parsed.originalExt}`
         renamePlan.push({
           file: mainFile,
           oldName: mainFile.name,
@@ -325,7 +340,7 @@ export default {
       } else if (subFiles.length > 0) {
         // 无主图，将最小序号的从图提升为主图
         const promotedFile = subFiles[0]
-        const targetName = `${base}.${promotedFile.parsed.ext}`
+        const targetName = `${base}.${promotedFile.parsed.originalExt}`
         renamePlan.push({
           file: promotedFile,
           oldName: promotedFile.name,
@@ -339,7 +354,7 @@ export default {
       for (let i = 0; i < subFiles.length; i++) {
         const file = subFiles[i]
         const newIdx = i + 1
-        const targetName = `${base} (${newIdx}).${file.parsed.ext}`
+        const targetName = `${base} (${newIdx}).${file.parsed.originalExt}`
         
         renamePlan.push({
           file: file,
@@ -368,7 +383,7 @@ export default {
       for (let i = 0; i < allFiles.length; i++) {
         const file = allFiles[i]
         const newIdx = i + 1
-        const targetName = `${base} (${newIdx}).${file.parsed.ext}`
+        const targetName = `${base} (${newIdx}).${file.parsed.originalExt}`
         
         let reason
         if (file.parsed.isMain) {
@@ -404,8 +419,18 @@ export default {
 
     // 监听配置变化，重新生成预览
     const watchConfig = () => {
+      console.log('watchConfig 触发:', {
+        hasFiles: hasFiles.value,
+        enableOrganize: organizeConfig.enableOrganize,
+        primaryNoIndex: organizeConfig.primaryNoIndex
+      })
+      
       if (hasFiles.value && organizeConfig.enableOrganize) {
+        console.log('触发 generatePreview')
         generatePreview()
+      } else {
+        console.log('跳过 generatePreview')
+        renamePreview.value = null
       }
     }
 
@@ -543,7 +568,15 @@ export default {
           ElMessage.success(`已加载 ${files.length} 个文件`)
           
           // 自动生成预览
+          console.log('文件加载完成，自动生成预览')
           generatePreview()
+          
+          // 验证预览数据
+          if (renamePreview.value) {
+            console.log('预览数据生成成功:', renamePreview.value.length, '个重命名计划')
+          } else {
+            console.log('预览数据生成失败')
+          }
         } else {
           ElMessage.warning('选择的文件夹中没有找到文件')
         }
@@ -565,6 +598,16 @@ export default {
 
     const previewSort = () => {
       ElMessage.info('排序预览功能即将推出！')
+    }
+
+    const forceGeneratePreview = () => {
+      console.log('强制生成预览')
+      generatePreview()
+      if (renamePreview.value) {
+        ElMessage.success(`强制生成预览成功，共 ${renamePreview.value.length} 个重命名计划`)
+      } else {
+        ElMessage.warning('预览生成失败')
+      }
     }
 
     // 生成预览函数 - 使用前端逻辑
@@ -612,6 +655,17 @@ export default {
         renamePreview.value = renamePlan
         console.log('前端生成预览数据成功:', renamePreview.value)
         console.log('预览数据长度:', renamePreview.value?.length)
+        
+        // 调试：打印每个重命名计划
+        renamePreview.value.forEach((plan, index) => {
+          console.log(`重命名计划 ${index + 1}: ${plan.oldName} → ${plan.newName} (${plan.reason})`)
+        })
+        
+        // 强制触发响应式更新
+        console.log('强制触发响应式更新')
+        nextTick(() => {
+          console.log('nextTick 执行，预览数据已更新')
+        })
         
       } catch (error) {
         console.error('前端生成预览失败:', error)
@@ -777,17 +831,43 @@ export default {
 
     // 从预览数据中获取新名称
     const getNewNameFromPreview = (file) => {
-      if (!renamePreview.value) {
+      if (!previewData.value) {
+        console.log(`getNewNameFromPreview: 无预览数据，返回原名称: ${file.name}`)
         return file.name
       }
 
-      const plan = renamePreview.value.find(p => p.file.name === file.name)
-      return plan ? plan.newName : file.name
+      console.log(`getNewNameFromPreview: 查找文件 ${file.name} 的重命名计划`)
+      console.log(`getNewNameFromPreview: 预览数据长度: ${previewData.value.length}`)
+      
+      // 使用文件名进行匹配，避免对象引用问题
+      const plan = previewData.value.find(p => p.file.name === file.name)
+      if (plan) {
+        console.log(`找到重命名计划: ${file.name} → ${plan.newName}`)
+        return plan.newName
+      }
+      
+      console.log(`未找到重命名计划: ${file.name}`)
+      console.log(`可用的重命名计划:`, previewData.value.map(p => `${p.file.name} → ${p.newName}`))
+      return file.name
     }
 
     // 添加监听器
     watch(() => organizeConfig.primaryNoIndex, watchConfig)
     watch(() => organizeConfig.enableOrganize, watchConfig)
+    
+    // 监听文件列表变化，自动生成预览
+    watch(() => fileList.value.length, (newLength, oldLength) => {
+      console.log(`文件列表长度变化: ${oldLength} → ${newLength}`)
+      if (newLength > 0 && organizeConfig.enableOrganize) {
+        console.log('文件列表变化，自动生成预览')
+        generatePreview()
+      }
+    })
+    
+    // 组件挂载时的初始化
+    onMounted(() => {
+      console.log('FileOrganize 组件挂载完成')
+    })
 
     return {
       selectedFolder,
@@ -801,12 +881,14 @@ export default {
       filterConfig,
       organizeConfig,
       hasFiles,
+      previewData,
       sortedFileList,
       goBack,
       selectFolder,
       loadFiles,
       refreshFiles,
       previewSort,
+      forceGeneratePreview,
       previewOrganize,
       startOrganize,
       getFileIcon,
