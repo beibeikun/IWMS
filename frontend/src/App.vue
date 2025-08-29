@@ -503,42 +503,62 @@ body {
   display: none;
 }
 
-.sidebar-menu .el-menu-item {
-  height: 50px;
-  line-height: 50px;
-  margin: 4px 8px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+/* 折叠状态下的子菜单标题样式 */
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 6px;
+  padding: 0 !important;
+  height: 52px;
+  border-radius: 12px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   color: #9ca3af;
   border: 1px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
-.sidebar-menu .el-menu-item:hover {
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title .el-icon {
+  margin-right: 0 !important;
+  margin-bottom: 0;
+  font-size: 22px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title:hover {
   background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
   color: #e5e7eb;
   border-color: rgba(255, 255, 255, 0.15);
-  transform: translateX(5px);
+  transform: translateX(3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
 }
 
-.sidebar-menu .el-menu-item.is-active {
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title:hover .el-icon {
+  font-size: 26px;
+  transform: scale(1.1) rotate(5deg);
+}
+
+.sidebar.collapsed .el-sub-menu.is-active .el-sub-menu__title {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   border-color: #60a5fa;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  animation: pulse 2s infinite;
 }
 
-.sidebar-menu .el-menu-item.is-disabled {
-  color: #9ca3af;
-  cursor: not-allowed;
-  opacity: 0.5;
+.sidebar.collapsed .el-sub-menu.is-active .el-sub-menu__title .el-icon {
+  font-size: 24px;
+  transform: scale(1.1);
 }
 
-.sidebar-menu .el-menu-item.is-disabled:hover {
-  background-color: transparent;
-  transform: none;
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title span {
+  display: none;
+}
+
+.sidebar.collapsed .el-sub-menu .el-sub-menu__title .el-sub-menu__icon-arrow {
+  display: none;
 }
 
 .menu-item-content {
@@ -627,6 +647,45 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 主菜单项样式 */
+.sidebar-menu .el-menu-item {
+  height: 50px;
+  line-height: 50px;
+  margin: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  color: #9ca3af;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-menu .el-menu-item:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(5px);
+}
+
+.sidebar-menu .el-menu-item.is-active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-color: #60a5fa;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.sidebar-menu .el-menu-item.is-disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sidebar-menu .el-menu-item.is-disabled:hover {
+  background-color: transparent;
+  transform: none;
 }
 
 /* 折叠状态下的子菜单样式 */
