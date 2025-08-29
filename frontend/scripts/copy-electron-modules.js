@@ -25,11 +25,15 @@ async function copyElectronModules() {
       path.join(targetDir, 'services')
     )
     
-    // 复制config目录
-    await fs.copy(
-      path.join(sourceDir, 'config'),
-      path.join(targetDir, 'config')
-    )
+    // 复制config目录（如果存在）
+    const configSourcePath = path.join(sourceDir, 'config')
+    const configTargetPath = path.join(targetDir, 'config')
+    
+    if (await fs.pathExists(configSourcePath)) {
+      await fs.copy(configSourcePath, configTargetPath)
+    } else {
+      console.log('ℹ️  config目录不存在，跳过复制')
+    }
     
     console.log('✅ Electron模块文件复制完成')
   } catch (error) {
