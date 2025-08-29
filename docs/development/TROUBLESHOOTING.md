@@ -1,185 +1,215 @@
-# IWMS 问题解决指南
+# IWMS 故障排除指南
 
-## 🚨 启动问题解决方案
+## 🚨 常见启动问题
 
-### 问题描述
-应用启动时出现错误：
+### 问题1：模块找不到错误
+
+#### 错误信息
 ```
-Uncaught Exception: Error: Could not load the 'sharp' module using the darwin-arm64 runtime
-ERR_DLOPEN_FAILED: dlopen(...): Library not loaded: @rpath/libvips-cpp.8.17.1.dylib
+Error: Cannot find module '../config/performance'
 ```
 
-### 问题原因
-1. **架构不匹配**：sharp 模块的原生依赖与当前系统架构不兼容
-2. **依赖缺失**：某些平台特定的依赖没有正确安装
-3. **打包问题**：原生模块在打包过程中没有正确处理
-4. **路径丢失**：构建后的应用无法找到原生依赖的正确路径
+#### 原因分析
+- 模块路径引用错误
+- 循环依赖问题
+- 构建文件未正确生成
 
-### 解决步骤
+#### 解决方案
 
-#### 1. 重新安装 sharp 模块，确保包含所有依赖
+##### 方法1：使用修复启动脚本（推荐）
 ```bash
-# 卸载现有版本
-npm uninstall sharp
-
-# 清理 npm 缓存
-npm cache clean --force
-
-# 使用平台特定参数重新安装
-npm install --os=darwin --cpu=arm64 --include=optional sharp
+cd frontend
+npm run electron:dev:fix
 ```
 
-#### 2. 验证依赖安装
+##### 方法2：手动清理和重启
 ```bash
-# 检查 sharp 版本
-npm list sharp
+cd frontend
 
-# 检查原生依赖
-ls -la node_modules/@img/
-ls -la node_modules/@img/sharp-libvips-darwin-arm64/lib/
-```
+# 清理构建文件
+rm -rf dist dist-electron
 
-#### 3. 修改 electron-builder 配置
-在 `package.json` 中添加以下配置：
-```json
-{
-  "build": {
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
-      "node_modules/@img/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "node_modules/@img",
-        "to": "node_modules/@img"
-      }
-    ],
-    "asarUnpack": [
-      "node_modules/sharp/**/*",
-      "node_modules/@img/**/*"
-    ]
-  }
-}
-```
+# 设置环境变量
+export NODE_OPTIONS="--max-old-space-size=8192 --expose-gc"
+export IWMS_MAX_THREADS=4
 
-#### 4. 简化主进程代码（推荐方案）
-在 `electron/main.js` 中直接导入 sharp 模块：
-```javascript
-// 导入第三方依赖
-const fs = require('fs-extra')           // 增强的文件系统操作
-const XLSX = require('xlsx')            // Excel 文件处理
-const glob = require('fast-glob')       // 快速文件匹配
-const sharp = require('sharp')          // 图片处理库
-```
-
-#### 5. 简化构建目标（避免 DMG 权限问题）
-```json
-{
-  "mac": {
-    "target": [
-      {
-        "target": "zip",
-        "arch": ["arm64", "x64"]
-      }
-    ]
-  }
-}
-```
-
-#### 6. 测试开发模式
-```bash
-# 启动开发服务器
-npm run dev
-
-# 启动 Electron 应用
+# 重新启动
 npm run electron:dev
 ```
 
-#### 7. 重新构建应用
+##### 方法3：使用优化启动脚本
 ```bash
-# 构建 ARM64 Mac 应用
-npm run build:mac-arm
-
-# 构建所有平台
-npm run build:all
+cd frontend
+npm run electron:dev:optimized
 ```
 
-### 验证解决方案
+### 问题2：内存溢出错误
 
-#### ✅ 成功标志
-- 开发模式下应用正常启动
-- 构建过程无错误
-- 生成的应用可以正常启动
-- 图片压缩功能正常工作
-- 不再出现 sharp 模块错误
+#### 错误信息
+```
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+```
 
-#### ❌ 失败标志
-- 仍然出现 sharp 模块错误
-- 构建过程失败
-- 应用无法启动
-- 功能异常
+#### 解决方案
+```bash
+# 设置更大的内存限制
+export NODE_OPTIONS="--max-old-space-size=8192 --expose-gc"
 
-### 关键配置说明
+# 减少线程数
+export IWMS_MAX_THREADS=2
 
-#### **extraResources 配置**
-- 确保 `node_modules/@img` 目录被复制到应用包中
-- 保持原生依赖的完整路径结构
-- 解决构建后路径丢失问题
+# 启动应用
+npm run electron:dev
+```
 
-#### **files 配置**
-- 明确包含 sharp 模块的所有文件
-- 确保原生依赖被正确打包
-- 避免依赖缺失问题
+### 问题3：依赖模块错误
 
-#### **平台特定安装**
-- 使用 `--os=darwin --cpu=arm64` 参数
-- 确保安装正确的架构版本
-- 包含所有可选依赖
+#### 错误信息
+```
+Cannot find module 'fs-extra'
+Cannot find module 'sharp'
+```
 
-### 预防措施
+#### 解决方案
+```bash
+cd frontend
 
-#### 1. 依赖管理
-- 使用平台特定参数安装 sharp
-- 定期更新依赖版本
-- 检查平台兼容性
-- 清理 npm 缓存
+# 重新安装依赖
+npm install
 
-#### 2. 构建配置
-- 配置 extraResources 确保原生模块
-- 简化构建目标避免权限问题
-- 测试不同架构的构建
-- 验证构建后的应用功能
+# 或者清理后重新安装
+rm -rf node_modules package-lock.json
+npm install
+```
 
-#### 3. 测试流程
-- 开发模式测试
-- 构建测试
-- 功能测试
-- 跨平台测试
+## 🔧 启动脚本说明
 
-### 常见问题
+### 1. **修复启动脚本** (`fix-and-start.sh`)
+- 自动清理构建文件
+- 设置优化环境变量
+- 重新启动应用
+- **推荐用于解决模块找不到问题**
 
-#### Q: 为什么会出现 sharp 模块错误？
-A: 通常是因为原生依赖与系统架构不匹配，或者依赖没有正确安装，或者构建后路径丢失。
+### 2. **优化启动脚本** (`start-optimized.sh`)
+- 设置内存限制和垃圾回收
+- 配置线程数和批次大小
+- 启动优化模式
 
-#### Q: 如何确保 sharp 模块正常工作？
-A: 使用平台特定参数安装，配置 extraResources，确保原生依赖被正确打包。
+### 3. **标准启动脚本** (`start.sh`)
+- 基础启动流程
+- 依赖检查和安装
+- 标准开发模式
 
-#### Q: 构建失败怎么办？
-A: 检查构建配置，确保 extraResources 正确配置，简化构建目标避免权限问题。
+## 📋 启动命令对比
 
-#### Q: 应用启动后功能异常？
-A: 检查控制台错误信息，验证所有依赖是否正确加载，测试核心功能。
+| 命令 | 用途 | 特点 |
+|------|------|------|
+| `npm run electron:dev` | 标准启动 | 基础功能，可能遇到模块问题 |
+| `npm run electron:dev:fix` | 修复启动 | 清理构建文件，解决模块问题 |
+| `npm run electron:dev:optimized` | 优化启动 | 内存优化，性能配置 |
+| `npm run electron:dev:fallback` | 备用启动 | 兼容性启动方式 |
 
-### 技术支持
+## 🛠️ 手动修复步骤
+
+### 步骤1：检查文件结构
+```bash
+cd frontend
+ls -la electron/
+ls -la electron/config/
+ls -la electron/utils/
+```
+
+### 步骤2：清理构建文件
+```bash
+rm -rf dist dist-electron
+```
+
+### 步骤3：设置环境变量
+```bash
+export NODE_OPTIONS="--max-old-space-size=8192 --expose-gc"
+export IWMS_MAX_THREADS=4
+export IWMS_BATCH_SIZE=10
+export IWMS_MULTI_THREAD=true
+```
+
+### 步骤4：重新启动
+```bash
+npm run electron:dev
+```
+
+## 🔍 问题诊断
+
+### 1. **检查控制台输出**
+- 查看具体的错误信息
+- 检查模块加载顺序
+- 确认文件路径是否正确
+
+### 2. **检查依赖状态**
+```bash
+# 检查Node.js版本
+node --version
+
+# 检查npm版本
+npm --version
+
+# 检查依赖安装状态
+npm list --depth=0
+```
+
+### 3. **检查文件权限**
+```bash
+# 检查脚本执行权限
+ls -la scripts/
+
+# 添加执行权限
+chmod +x scripts/*.sh
+```
+
+## 📝 预防措施
+
+### 1. **定期清理**
+```bash
+# 定期清理构建文件
+npm run clean
+
+# 或者手动清理
+rm -rf dist dist-electron
+```
+
+### 2. **使用优化脚本**
+- 优先使用 `npm run electron:dev:fix`
+- 避免直接使用 `npm run electron:dev`
+
+### 3. **环境变量配置**
+- 在 `.bashrc` 或 `.zshrc` 中设置环境变量
+- 避免每次手动设置
+
+## 🚀 快速恢复
+
+如果遇到严重问题，可以使用以下命令快速恢复：
+
+```bash
+cd frontend
+
+# 完全重置
+rm -rf dist dist-electron node_modules package-lock.json
+
+# 重新安装依赖
+npm install
+
+# 使用修复脚本启动
+npm run electron:dev:fix
+```
+
+## 📞 获取帮助
 
 如果问题仍然存在：
-1. 检查 Node.js 版本（推荐 16+）
-2. 清理 node_modules 并重新安装
-3. 检查系统架构兼容性
-4. 查看详细错误日志
-5. 提交 Issue 到项目仓库
+
+1. **查看日志**：检查控制台输出和错误信息
+2. **检查版本**：确认Node.js和npm版本兼容性
+3. **提交Issue**：在GitHub仓库提交详细的问题描述
+4. **社区支持**：在项目讨论区寻求帮助
 
 ---
 
-**记住**：大多数启动问题都与依赖安装或配置有关，按照上述步骤通常可以解决。关键是要确保原生模块被正确打包和配置。
+**记住**：大多数启动问题都可以通过使用 `npm run electron:dev:fix` 命令解决！

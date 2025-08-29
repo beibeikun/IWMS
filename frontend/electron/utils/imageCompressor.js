@@ -12,6 +12,8 @@ const fs = require('fs-extra')
 const path = require('path')
 const sharp = require('sharp')
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads')
+// 使用配置管理器，支持实时更新
+const configManager = require('./configManager')
 
 /**
  * 批量图片压缩功能（按文件体积压缩）
@@ -41,7 +43,7 @@ async function compressImagesBatch({ imageTasks, maxFileSize, useMultiThread = t
       return { success: true, results, totalTime: 0, threadsUsed: 1 }
     }
 
-    if (useMultiThread && imageTasks.length > 1) {
+    if (useMultiThread && imageTasks.length > 1 && configManager.getCurrentConfig().imageProcessing.enableMultiThread) {
       return await compressImagesMultiThread(imageTasks, maxFileSize)
     } else {
       return await compressImagesSingleThread(imageTasks, maxFileSize)
@@ -79,7 +81,7 @@ async function compressImagesBatchByDimension({ imageTasks, maxDimension, useMul
       return { success: true, results, totalTime: 0, threadsUsed: 1 }
     }
 
-    if (useMultiThread && imageTasks.length > 1) {
+    if (useMultiThread && imageTasks.length > 1 && configManager.getCurrentConfig().imageProcessing.enableMultiThread) {
       return await compressImagesByDimensionMultiThread(imageTasks, maxDimension)
     } else {
       return await compressImagesByDimensionSingleThread(imageTasks, maxDimension)
@@ -149,7 +151,8 @@ async function compressImagesByDimensionSingleThread(imageTasks, maxDimension) {
 async function compressImagesMultiThread(imageTasks, maxFileSize) {
   const startTime = Date.now()
   const numCPUs = require('os').cpus().length
-  const numThreads = Math.min(numCPUs, imageTasks.length, 8) // 最多8个线程
+  // 使用配置管理器中的线程数设置
+  const numThreads = Math.min(numCPUs, imageTasks.length, configManager.getCurrentConfig().imageProcessing.maxThreads)
   
   const results = await Promise.all(
     imageTasks.map((task, index) => {
@@ -179,6 +182,12 @@ async function compressImagesMultiThread(imageTasks, maxFileSize) {
   )
   
   const totalTime = Date.now() - startTime
+  
+  // 强制垃圾回收，释放内存
+  if (global.gc) {
+    global.gc()
+  }
+  
   return { success: true, results, totalTime, threadsUsed: numThreads }
 }
 
@@ -188,7 +197,8 @@ async function compressImagesMultiThread(imageTasks, maxFileSize) {
 async function compressImagesByDimensionMultiThread(imageTasks, maxDimension) {
   const startTime = Date.now()
   const numCPUs = require('os').cpus().length
-  const numThreads = Math.min(numCPUs, imageTasks.length, 8) // 最多8个线程
+  // 使用配置管理器中的线程数设置
+  const numThreads = Math.min(numCPUs, imageTasks.length, configManager.getCurrentConfig().imageProcessing.maxThreads)
   
   const results = await Promise.all(
     imageTasks.map((task, index) => {
@@ -218,6 +228,12 @@ async function compressImagesByDimensionMultiThread(imageTasks, maxDimension) {
   )
   
   const totalTime = Date.now() - startTime
+  
+  // 强制垃圾回收，释放内存
+  if (global.gc) {
+    global.gc()
+  }
+  
   return { success: true, results, totalTime, threadsUsed: numThreads }
 }
 

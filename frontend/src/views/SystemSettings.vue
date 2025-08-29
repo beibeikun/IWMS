@@ -83,12 +83,31 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="多线程处理:">
+        <el-form-item label="多线程使用数量:">
+          <el-input-number 
+            v-model="settings.maxThreads" 
+            :min="1" 
+            :max="16"
+            placeholder="设置最大线程数"
+            style="width: 200px"
+          >
+            <template #prepend>线程数</template>
+            <template #append>个</template>
+          </el-input-number>
+          <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+            建议设置：内存 < 8GB 选择 2，内存 8-16GB 选择 4，内存 > 16GB 选择 6-8
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="启用多线程:">
           <el-switch 
             v-model="settings.useMultiThread" 
             active-text="启用"
             inactive-text="禁用"
           />
+          <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+            禁用时将使用单线程处理，内存占用更少但速度较慢
+          </div>
         </el-form-item>
         
         <!-- 界面设置 -->
@@ -139,6 +158,7 @@ export default {
       defaultFileTypes: 'image',
       defaultRecursive: true,
       defaultConflictStrategy: 'skip',
+      maxThreads: 4,
       useMultiThread: true,
       sidebarCollapsed: false,
       autoSaveSettings: true
@@ -156,6 +176,7 @@ export default {
         defaultFileTypes: settings.defaultFileTypes,
         defaultRecursive: settings.defaultRecursive,
         defaultConflictStrategy: settings.defaultConflictStrategy,
+        maxThreads: settings.maxThreads,
         useMultiThread: settings.useMultiThread,
         sidebarCollapsed: settings.sidebarCollapsed,
         autoSaveSettings: settings.autoSaveSettings

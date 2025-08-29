@@ -25,6 +25,12 @@ async function copyElectronModules() {
       path.join(targetDir, 'services')
     )
     
+    // 复制config目录
+    await fs.copy(
+      path.join(sourceDir, 'config'),
+      path.join(targetDir, 'config')
+    )
+    
     console.log('✅ Electron模块文件复制完成')
   } catch (error) {
     console.error('❌ 复制失败:', error.message)

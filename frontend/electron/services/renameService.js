@@ -13,6 +13,7 @@ const fs = require('fs-extra')
 const path = require('path')
 const { parseFileName } = require('../utils/fileNameParser')
 const { compressImagesBatch, compressImagesBatchByDimension } = require('../utils/imageCompressor')
+const { getRecommendedBatchSize, forceGarbageCollection } = require('../utils/memoryManager')
 
 /**
  * 预览文件变更
@@ -264,73 +265,104 @@ async function processFiles({ inputPath, outputPath, mapping, files, conflictStr
   if (imageCompressionTasks.length > 0) {
     const startTime = Date.now()
     
-    if (compressionMode === 'dimension') {
-      // 按尺寸压缩模式
-      const compressionResult = await compressImagesBatchByDimension({
-        imageTasks: imageCompressionTasks,
-        maxDimension: maxDimension,
-        useMultiThread: true
-      })
+    // 分批处理图片，避免内存溢出
+    const configManager = require('../utils/configManager')
+    const config = configManager.getCurrentConfig()
+    
+    // 使用配置管理器中的批次大小
+    const batchSize = config.imageProcessing.batchSize
+    const batches = []
+    for (let i = 0; i < imageCompressionTasks.length; i += batchSize) {
+      batches.push(imageCompressionTasks.slice(i, i + batchSize))
+    }
+    
+    console.log(`📦 图片处理批次: ${batches.length}批，每批${batchSize}张图片`)
+    console.log(`🧵 当前线程配置: ${config.imageProcessing.maxThreads}个线程，多线程${config.imageProcessing.enableMultiThread ? '启用' : '禁用'}`)
+    
+    let allResults = []
+    let totalCompressionTime = 0
+    let totalThreadsUsed = 0
+    
+    for (const batch of batches) {
+      if (compressionMode === 'dimension') {
+        // 按尺寸压缩模式
+        const compressionResult = await compressImagesBatchByDimension({
+          imageTasks: batch,
+          maxDimension: maxDimension,
+          useMultiThread: true
+        })
       
-      if (compressionResult.success) {
-        // 将压缩结果转换为正确的格式，并替换占位结果
-        for (const compressResult of compressionResult.results) {
-          const task = imageCompressionTasks.find(t => t.inputPath === compressResult.filePath)
-          if (task) {
-            // 找到对应的占位结果并替换
-            const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
-            if (existingResultIndex !== -1) {
-              results[existingResultIndex] = {
-                sourcePath: task.inputPath,
-                originalName: task.fileName,
-                newName: path.basename(task.outputPath),
-                status: 'success',
-                message: compressResult.message
+              if (compressionResult.success) {
+          // 将压缩结果转换为正确的格式，并替换占位结果
+          for (const compressResult of compressionResult.results) {
+            const task = batch.find(t => t.inputPath === compressResult.filePath)
+            if (task) {
+              // 找到对应的占位结果并替换
+              const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
+              if (existingResultIndex !== -1) {
+                results[existingResultIndex] = {
+                  sourcePath: task.inputPath,
+                  originalName: task.fileName,
+                  newName: path.basename(task.outputPath),
+                  status: 'success',
+                  message: compressResult.message
+                }
+              }
+              
+              if (compressResult.compressed) {
+                compressedCount++
               }
             }
-            
-            if (compressResult.compressed) {
-              compressedCount++
+          }
+          allResults.push(...compressionResult.results)
+          totalCompressionTime += compressionResult.totalTime
+          totalThreadsUsed = Math.max(totalThreadsUsed, compressionResult.threadsUsed)
+        }
+      } else if (compressionMode === 'filesize') {
+        // 按文件大小压缩模式
+        const compressionResult = await compressImagesBatch({
+          imageTasks: batch,
+          maxFileSize: maxFileSize,
+          useMultiThread: true
+        })
+        
+        if (compressionResult.success) {
+          // 将压缩结果转换为正确的格式，并替换占位结果
+          for (const compressResult of compressionResult.results) {
+            const task = batch.find(t => t.inputPath === compressResult.filePath)
+            if (task) {
+              // 找到对应的占位结果并替换
+              const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
+              if (existingResultIndex !== -1) {
+                results[existingResultIndex] = {
+                  sourcePath: task.inputPath,
+                  originalName: task.fileName,
+                  newName: path.basename(task.outputPath),
+                  status: 'success',
+                  message: compressResult.message
+                }
+              }
+              
+              if (compressResult.compressed) {
+                compressedCount++
+              }
             }
           }
+          allResults.push(...compressionResult.results)
+          totalCompressionTime += compressionResult.totalTime
+          totalThreadsUsed = Math.max(totalThreadsUsed, compressionResult.threadsUsed)
         }
-        compressionTime = compressionResult.totalTime
-        threadsUsed = compressionResult.threadsUsed
       }
-    } else if (compressionMode === 'filesize') {
-      // 按文件大小压缩模式
-      const compressionResult = await compressImagesBatch({
-        imageTasks: imageCompressionTasks,
-        maxFileSize: maxFileSize,
-        useMultiThread: true
-      })
       
-      if (compressionResult.success) {
-        // 将压缩结果转换为正确的格式，并替换占位结果
-        for (const compressResult of compressionResult.results) {
-          const task = imageCompressionTasks.find(t => t.inputPath === compressResult.filePath)
-          if (task) {
-            // 找到对应的占位结果并替换
-            const existingResultIndex = results.findIndex(r => r.sourcePath === task.inputPath && r.status === 'pending')
-            if (existingResultIndex !== -1) {
-              results[existingResultIndex] = {
-                sourcePath: task.inputPath,
-                originalName: task.fileName,
-                newName: path.basename(task.outputPath),
-                status: 'success',
-                message: compressResult.message
-              }
-            }
-            
-            if (compressResult.compressed) {
-              compressedCount++
-            }
-          }
-        }
-        compressionTime = compressionResult.totalTime
-        threadsUsed = compressionResult.threadsUsed
+      // 每批处理完后强制垃圾回收
+      if (global.gc) {
+        global.gc()
       }
     }
+    
+    // 使用累计的统计信息
+    compressionTime = totalCompressionTime
+    threadsUsed = totalThreadsUsed
   }
   
   // 返回处理结果和统计信息
