@@ -698,4 +698,74 @@ body {
     padding-left: 20px;
   }
 }
+
+/* 标签样式优化 - 全局覆盖 */
+.sidebar-menu .el-sub-menu .el-menu-item .el-tag {
+  font-size: 10px !important;
+  height: 18px !important;
+  line-height: 16px !important;
+  padding: 0 6px !important;
+  border-radius: 4px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  background-color: rgba(156, 163, 175, 0.2) !important;
+  border-color: rgba(156, 163, 175, 0.3) !important;
+  color: #9ca3af !important;
+  margin-left: 8px !important;
+  flex-shrink: 0 !important;
+  min-width: auto !important;
+  white-space: nowrap !important;
+}
+
+.sidebar-menu .el-sub-menu .el-menu-item:hover .el-tag {
+  background-color: rgba(156, 163, 175, 0.3) !important;
+  border-color: rgba(156, 163, 175, 0.4) !important;
+  color: #d1d5db !important;
+}
+
+.sidebar-menu .el-menu-item .el-tag {
+  font-size: 11px !important;
+  height: 20px !important;
+  line-height: 18px !important;
+  padding: 0 8px !important;
+  border-radius: 4px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  background-color: rgba(156, 163, 175, 0.2) !important;
+  border-color: rgba(156, 163, 175, 0.3) !important;
+  color: #9ca3af !important;
+  margin-left: 8px !important;
+  flex-shrink: 0 !important;
+  min-width: auto !important;
+  white-space: nowrap !important;
+}
+
+.sidebar-menu .el-menu-item:hover .el-tag {
+  background-color: rgba(156, 163, 175, 0.3) !important;
+  border-color: rgba(156, 163, 175, 0.4) !important;
+  color: #d1d5db !important;
+}
+
+.sidebar.collapsed .el-sub-menu .el-menu-item .el-tag {
+  font-size: 10px !important;
+  height: 18px !important;
+  line-height: 16px !important;
+  padding: 0 6px !important;
+  border-radius: 4px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  background-color: rgba(156, 163, 175, 0.2) !important;
+  border-color: rgba(156, 163, 175, 0.3) !important;
+  color: #9ca3af !important;
+  margin-left: 8px !important;
+  flex-shrink: 0 !important;
+  min-width: auto !important;
+  white-space: nowrap !important;
+}
+
+.sidebar.collapsed .el-sub-menu .el-menu-item:hover .el-tag {
+  background-color: rgba(156, 163, 175, 0.3) !important;
+  border-color: rgba(156, 163, 175, 0.4) !important;
+  color: #d1d5db !important;
+}
 </style>
