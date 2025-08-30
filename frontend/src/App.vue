@@ -231,7 +231,8 @@ export default {
         'repository-related': '/repository-related',
         'generate-form': '/generate-form',
         'delete-from-repo': '/delete-from-repo',
-        'system-settings': '/system-settings'
+        'system-settings': '/system-settings',
+        'about': '/about'
       }
       
       const targetRoute = routeMap[index]
