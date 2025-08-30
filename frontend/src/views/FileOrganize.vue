@@ -37,7 +37,7 @@
             </el-button>
             <div v-if="selectedFolder" class="folder-info">
               <p>已选择: {{ selectedFolder }}</p>
-              <p>文件数量: {{ fileList.length }}</p>
+
             </div>
           </div>
 
@@ -114,6 +114,68 @@
                 </div>
               </el-form-item>
 
+              <!-- 按前缀分文件夹选项 -->
+              <el-form-item>
+                <el-checkbox v-model="organizeConfig.groupByPrefix">
+                  按前缀分文件夹
+                </el-checkbox>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  <div>开启后，将按文件名前缀自动创建子文件夹并移动文件</div>
+                </div>
+              </el-form-item>
+
+              <!-- 递归模式选项 -->
+              <el-form-item v-if="organizeConfig.groupByPrefix">
+                <el-checkbox v-model="organizeConfig.recursive">
+                  递归模式
+                </el-checkbox>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  <div>开启后，将处理子目录中的文件（默认仅处理根目录第一层）</div>
+                </div>
+              </el-form-item>
+
+              <!-- 冲突处理策略 -->
+              <el-form-item v-if="organizeConfig.groupByPrefix">
+                <label>冲突处理策略</label>
+                <el-select v-model="organizeConfig.conflictPolicy" style="width: 100%;">
+                  <el-option label="跳过已存在文件" value="keep" />
+                  <el-option label="覆盖目标文件" value="overwrite" />
+                  <el-option label="重命名冲突文件" value="rename" />
+                </el-select>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  <div>当目标位置已存在同名文件时的处理方式</div>
+                </div>
+              </el-form-item>
+
+              <!-- 目录名清洗 -->
+              <el-form-item v-if="organizeConfig.groupByPrefix">
+                <el-checkbox v-model="organizeConfig.sanitizeFolderName">
+                  清洗目录名
+                </el-checkbox>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  <div>开启后，将替换目录名中的非法字符（\/:*?"<>| → _）</div>
+                </div>
+              </el-form-item>
+
+              <!-- 大小写敏感 -->
+              <el-form-item v-if="organizeConfig.groupByPrefix">
+                <el-checkbox v-model="organizeConfig.caseSensitivePrefix">
+                  前缀大小写敏感
+                </el-checkbox>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  <div>开启后，a-1 与 A-1 将分别创建不同的文件夹</div>
+                </div>
+              </el-form-item>
+
+              <!-- 生成移动日志 -->
+              <el-form-item v-if="organizeConfig.groupByPrefix">
+                <el-checkbox v-model="organizeConfig.logMoveCsv">
+                  生成移动日志
+                </el-checkbox>
+                <div style="margin-top: 5px; color: #909399; font-size: 12px;">
+                  <div>开启后，将生成 move_log.csv 文件记录所有移动操作</div>
+                </div>
+              </el-form-item>
 
             </el-form>
           </div>
@@ -143,7 +205,12 @@
 
           <!-- 文件列表 -->
           <div v-if="fileList.length > 0" class="file-list">
-            <el-table :data="sortedFileList" style="width: 100%" height="400">
+            <el-table 
+              :data="paginatedFileList" 
+              style="width: 100%" 
+              height="400"
+              :size="isSmallScreen ? 'small' : 'default'"
+            >
               <el-table-column prop="name" label="文件名" min-width="200">
                 <template #default="{ row }">
                   <div class="file-name">
@@ -167,7 +234,13 @@
                 </template>
               </el-table-column>
               
-              <el-table-column prop="mtime" label="修改时间" width="150">
+              <el-table-column 
+                prop="mtime" 
+                label="修改时间" 
+                width="150"
+                :show-overflow-tooltip="true"
+                class-name="hidden-on-mobile"
+              >
                 <template #default="{ row }">
                   {{ formatDate(row.mtime) }}
                 </template>
@@ -188,6 +261,25 @@
                 </template>
               </el-table-column>
             </el-table>
+            
+            <!-- 分页组件 -->
+            <div class="pagination-container">
+              <!-- 调试信息 -->
+              <div v-if="false" style="font-size: 12px; color: #999; margin-bottom: 5px;">
+                调试: 总数={{ sortedFileList.length }}, 当前页={{ currentPage }}, 每页={{ pageSize }}, 布局={{ paginationLayout }}
+              </div>
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="getPageSizes()"
+                :total="sortedFileList.length"
+                :layout="paginationLayout"
+                :small="isExtraSmallScreen || isUltraSmallScreen"
+                :background="true"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+              />
+            </div>
             
             <!-- 文件统计信息 -->
             <div class="file-stats">
@@ -218,23 +310,6 @@
                 </el-col>
               </el-row>
             </div>
-            
-
-            
-            <!-- 重命名预览摘要 -->
-            <div v-if="previewData" class="rename-summary">
-              <h4>重命名预览摘要</h4>
-              <div class="summary-content">
-                <div v-for="(group, index) in getRenameGroups()" :key="index" class="group-summary">
-                  <div class="group-title">{{ group.base }}</div>
-                  <div class="group-files">
-                    <span v-for="file in group.files" :key="file.oldName" class="file-change">
-                      {{ file.oldName }} → {{ file.newName }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           <!-- 空状态 -->
@@ -261,7 +336,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -279,6 +354,44 @@ export default {
     const progressStatus = ref('')
     const progressText = ref('')
     const renamePreview = ref(null)
+    
+    // 分页相关数据
+    const currentPage = ref(1)
+    const pageSize = ref(50) // 每页显示50条记录
+    
+    // 响应式分页布局
+    const paginationLayout = computed(() => {
+      // 根据窗口宽度动态调整分页布局
+      const width = window.innerWidth
+      if (width < 480) {
+        // 窄屏幕：将左中右组件分成三行显示
+        return 'total, sizes, prev, pager, next, jumper'
+      } else if (width < 640) {
+        // 小屏幕：简化布局
+        return 'total, sizes, prev, pager, next'
+      } else if (width < 768) {
+        // 中等小屏幕：添加总数显示
+        return 'total, sizes, prev, pager, next'
+      } else {
+        // 中等及以上屏幕：完整布局
+        return 'total, sizes, prev, pager, next, jumper'
+      }
+    })
+
+    // 判断是否为小屏幕
+    const isSmallScreen = computed(() => {
+      return window.innerWidth < 768
+    })
+
+    // 判断是否为超小屏幕
+    const isExtraSmallScreen = computed(() => {
+      return window.innerWidth < 480
+    })
+
+    // 判断是否为极窄屏幕
+    const isUltraSmallScreen = computed(() => {
+      return window.innerWidth < 360
+    })
 
     // 配置对象
     const sortConfig = reactive({
@@ -294,7 +407,13 @@ export default {
 
     // 文件整理配置
     const organizeConfig = reactive({
-      primaryNoIndex: true // 主图无序号模式
+      primaryNoIndex: true, // 主图无序号模式
+      groupByPrefix: false, // 按前缀分文件夹
+      recursive: false, // 递归模式
+      conflictPolicy: 'keep', // 冲突处理策略
+      sanitizeFolderName: true, // 目录名清洗（默认开启）
+      caseSensitivePrefix: false, // 前缀大小写敏感
+      logMoveCsv: true // 生成移动日志（默认开启）
     })
 
     // 文件名解析正则表达式
@@ -513,6 +632,18 @@ export default {
       return sorted
     })
 
+    // 分页后的文件列表
+    const paginatedFileList = computed(() => {
+      const startIndex = (currentPage.value - 1) * pageSize.value
+      const endIndex = startIndex + pageSize.value
+      return sortedFileList.value.slice(startIndex, endIndex)
+    })
+
+    // 总页数
+    const totalPages = computed(() => {
+      return Math.ceil(sortedFileList.value.length / pageSize.value)
+    })
+
     // 方法
     const goBack = () => {
       router.push('/file-operations')
@@ -661,30 +792,7 @@ export default {
       return formatFileSize(totalBytes)
     }
 
-    // 获取重命名组信息
-    const getRenameGroups = () => {
-      if (!previewData.value) return []
-      
-      const groups = new Map()
-      previewData.value.forEach(plan => {
-        const parsed = parseFileName(plan.file.name)
-        if (parsed) {
-          if (!groups.has(parsed.base)) {
-            groups.set(parsed.base, [])
-          }
-          groups.get(parsed.base).push({
-            oldName: plan.oldName,
-            newName: plan.newName,
-            reason: plan.reason
-          })
-        }
-      })
-      
-      return Array.from(groups.entries()).map(([base, files]) => ({
-        base,
-        files
-      }))
-    }
+
 
     // 生成预览函数 - 使用前端逻辑
     const generatePreview = () => {
@@ -827,23 +935,51 @@ export default {
               ctime: file.ctime instanceof Date ? file.ctime.getTime() : file.ctime
             }))
 
+            // 添加调试信息
+            console.log('开始执行文件整理，配置参数:', {
+              groupByPrefix: organizeConfig.groupByPrefix,
+              recursive: organizeConfig.recursive,
+              conflictPolicy: organizeConfig.conflictPolicy,
+              sanitizeFolderName: organizeConfig.sanitizeFolderName,
+              caseSensitivePrefix: organizeConfig.caseSensitivePrefix,
+              logMoveCsv: organizeConfig.logMoveCsv
+            })
+
             const result = await window.electronAPI.executeFileOrganize({
               files: serializableFiles,
               folderPath: selectedFolder.value,
-              primaryNoIndex: organizeConfig.primaryNoIndex
+              primaryNoIndex: organizeConfig.primaryNoIndex,
+              groupByPrefix: organizeConfig.groupByPrefix,
+              recursive: organizeConfig.recursive,
+              conflictPolicy: organizeConfig.conflictPolicy,
+              sanitizeFolderName: organizeConfig.sanitizeFolderName,
+              caseSensitivePrefix: organizeConfig.caseSensitivePrefix,
+              logMoveCsv: organizeConfig.logMoveCsv
             })
+
+            console.log('文件整理结果:', result)
 
             if (result.success) {
               progressPercentage.value = 100
               progressStatus.value = 'success'
               progressText.value = '整理完成！'
 
-              ElMessage.success(
-                `文件整理完成！\n` +
+              let message = `文件整理完成！\n` +
                 `- 成功重命名：${result.stats.renamedFiles} 个文件\n` +
                 `- 处理组数：${result.stats.processedFiles} 个\n` +
                 `- 失败文件：${result.stats.failedFiles} 个`
-              )
+              
+              // 如果启用了按前缀分文件夹，显示相关统计
+              if (organizeConfig.groupByPrefix && result.stats.prefixGrouping) {
+                const pg = result.stats.prefixGrouping
+                message += `\n\n按前缀分文件夹结果：\n` +
+                  `- 成功移动：${pg.movedFiles} 个文件\n` +
+                  `- 跳过文件：${pg.skippedFiles} 个\n` +
+                  `- 失败文件：${pg.failedFiles} 个\n` +
+                  `- 创建文件夹：${pg.createdFolders} 个`
+              }
+
+              ElMessage.success(message)
 
               // 重新加载文件列表
               await loadFiles()
@@ -919,6 +1055,11 @@ export default {
     // 添加监听器
     watch(() => organizeConfig.primaryNoIndex, watchConfig)
     
+    // 监听排序配置变化，重置分页
+    watch([() => sortConfig.primarySort, () => sortConfig.primaryOrder, () => sortConfig.secondarySort, () => sortConfig.secondaryOrder], () => {
+      currentPage.value = 1
+    })
+    
     // 监听文件类型过滤配置变化，重新加载文件
     watch(() => filterConfig.fileTypes, () => {
       console.log('文件类型过滤配置变化:', filterConfig.fileTypes)
@@ -934,12 +1075,59 @@ export default {
       if (newLength > 0) {
         console.log('文件列表变化，自动生成预览')
         generatePreview()
+        // 重置分页到第一页
+        currentPage.value = 1
+        // 确保分页组件正确更新
+        nextTick(() => {
+          console.log('分页组件更新完成，总数:', sortedFileList.value.length)
+        })
       }
     })
     
+    // 分页处理方法
+    const handleSizeChange = (newSize) => {
+      pageSize.value = newSize
+      currentPage.value = 1 // 重置到第一页
+    }
+
+    const handleCurrentChange = (newPage) => {
+      currentPage.value = newPage
+    }
+
+    // 根据屏幕大小动态调整页面大小选项
+    const getPageSizes = () => {
+      const width = window.innerWidth
+      if (width < 480) {
+        // 超小屏幕：最少选项
+        return [20, 50]
+      } else if (width < 768) {
+        // 小屏幕：减少选项
+        return [20, 50, 100]
+      } else {
+        // 大屏幕：完整选项
+        return [20, 50, 100, 200]
+      }
+    }
+
+    // 窗口大小变化处理
+    const handleResize = () => {
+      // 触发响应式更新
+      nextTick(() => {
+        // 强制重新计算分页布局
+        console.log('窗口大小变化，重新计算分页布局')
+      })
+    }
+
     // 组件挂载时的初始化
     onMounted(() => {
       console.log('FileOrganize 组件挂载完成')
+      // 添加窗口大小变化监听器
+      window.addEventListener('resize', handleResize)
+    })
+
+    // 组件卸载时清理监听器
+    onUnmounted(() => {
+      window.removeEventListener('resize', handleResize)
     })
 
     return {
@@ -956,6 +1144,14 @@ export default {
       hasFiles,
       previewData,
       sortedFileList,
+      paginatedFileList,
+      currentPage,
+      pageSize,
+      totalPages,
+      paginationLayout,
+      isSmallScreen,
+      isExtraSmallScreen,
+      isUltraSmallScreen,
       goBack,
       selectFolder,
       loadFiles,
@@ -970,7 +1166,9 @@ export default {
       getGroupCount,
       getRenameCount,
       formatTotalSize,
-      getRenameGroups
+      handleSizeChange,
+      handleCurrentChange,
+      getPageSizes
     }
   }
 }
@@ -1076,53 +1274,218 @@ export default {
   letter-spacing: 0.5px;
 }
 
-.rename-summary {
+.pagination-container {
   margin-top: 20px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.rename-summary h4 {
-  margin: 0 0 15px 0;
-  color: #2c3e50;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.summary-content {
   display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.group-summary {
-  background: white;
-  padding: 15px;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.group-title {
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-.group-files {
-  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px 0;
   flex-wrap: wrap;
   gap: 10px;
+  background: #fafafa;
+  border-radius: 6px;
+  margin: 20px 0;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+  position: relative;
 }
 
-.file-change {
-  background: #e1f5fe;
-  color: #0277bd;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: monospace;
+/* 响应式分页样式 */
+@media (max-width: 768px) {
+  .pagination-container {
+    justify-content: center;
+    padding: 15px 10px;
+    margin: 20px 10px;
+  }
+  
+  .pagination-container .el-pagination {
+    font-size: 12px;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__sizes {
+    margin-right: 10px;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__total {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .pagination-container {
+    padding: 15px 8px;
+    margin: 20px 8px;
+  }
+  
+  .pagination-container .el-pagination {
+    font-size: 11px;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__sizes {
+    margin-right: 8px;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__total {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    padding: 20px 10px;
+    margin: 20px 10px;
+    width: calc(100% - 20px);
+    box-sizing: border-box;
+  }
+  
+  .pagination-container .el-pagination {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    font-size: 12px;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  /* 第一行：总数和每页条数选择器 */
+  .pagination-container .el-pagination .el-pagination__total,
+  .pagination-container .el-pagination .el-pagination__sizes {
+    margin: 0;
+    text-align: center;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* 第二行：分页导航按钮 */
+  .pagination-container .el-pagination .el-pagination__prev,
+  .pagination-container .el-pagination .el-pagination__next,
+  .pagination-container .el-pagination .el-pager {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+  
+  .pagination-container .el-pagination .el-pager {
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .pagination-container .el-pagination .el-pager li {
+    min-width: 32px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 12px;
+    margin: 2px;
+  }
+  
+  /* 第三行：跳转输入框 */
+  .pagination-container .el-pagination .el-pagination__jump {
+    margin: 0;
+    text-align: center;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__jump .el-input {
+    width: 80px;
+    max-width: 100%;
+  }
+  
+  /* 确保每行之间有足够的间距 */
+  .pagination-container .el-pagination > * {
+    margin-bottom: 10px;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .pagination-container .el-pagination > *:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* 确保选择器不会超出容器 */
+  .pagination-container .el-pagination .el-pagination__sizes .el-select {
+    width: 100%;
+    max-width: 120px;
+  }
+  
+  /* 确保总数显示不会换行 */
+  .pagination-container .el-pagination .el-pagination__total {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* 极窄屏幕优化 */
+@media (max-width: 360px) {
+  .pagination-container {
+    padding: 15px 5px;
+    margin: 15px 5px;
+    width: calc(100% - 10px);
+    gap: 10px;
+  }
+  
+  .pagination-container .el-pagination {
+    gap: 10px;
+    font-size: 11px;
+  }
+  
+  .pagination-container .el-pagination .el-pager li {
+    min-width: 28px;
+    height: 28px;
+    line-height: 28px;
+    font-size: 11px;
+    margin: 1px;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__jump .el-input {
+    width: 60px;
+  }
+  
+  .pagination-container .el-pagination .el-pagination__sizes .el-select {
+    max-width: 100px;
+  }
+}
+
+/* 表格响应式样式 */
+@media (max-width: 768px) {
+  .hidden-on-mobile {
+    display: none !important;
+  }
+  
+  .file-list .el-table {
+    font-size: 12px;
+  }
+  
+  .file-list .el-table .el-table__header {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-list .el-table {
+    font-size: 11px;
+  }
+  
+  .file-list .el-table .el-table__header {
+    font-size: 11px;
+  }
+  
+  .file-list .el-table .el-table__cell {
+    padding: 8px 4px;
+  }
 }
 
 .quick-actions {

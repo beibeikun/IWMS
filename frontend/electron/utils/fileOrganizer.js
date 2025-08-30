@@ -12,6 +12,9 @@ const fs = require('fs-extra')
 const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 
+// 导入前缀分组模块
+const { executePrefixGrouping, previewPrefixGrouping } = require('./prefixGrouper.js')
+
 /**
  * 文件名解析正则表达式
  * 匹配模式：^(?P<base>.+?)\s?(?:\((?P<idx>\d+)\))?\.(?P<ext>jpg|jpeg|png|tif|tiff|webp)$
@@ -291,15 +294,59 @@ async function executeRenamePlan(renamePlan, folderPath) {
 }
 
 /**
+ * 获取重命名后的文件列表
+ * 
+ * @param {string} folderPath - 文件夹路径
+ * @param {Array} renameResults - 重命名结果
+ * @returns {Array} 重命名后的文件列表
+ */
+async function getRenamedFilesList(folderPath, renameResults) {
+  const renamedFiles = []
+  
+  for (const result of renameResults) {
+    try {
+      const filePath = result.newPath || path.join(folderPath, result.newName)
+      const stats = await fs.stat(filePath)
+      
+      renamedFiles.push({
+        name: result.newName,
+        path: filePath,
+        size: stats.size,
+        type: path.extname(result.newName).toLowerCase(),
+        extension: path.extname(result.newName).toLowerCase(),
+        mtime: stats.mtime,
+        ctime: stats.ctime
+      })
+    } catch (error) {
+      console.error(`获取重命名后文件信息失败: ${result.newName}`, error.message)
+    }
+  }
+  
+  return renamedFiles
+}
+
+/**
  * 整理排序文件
  * 
  * @param {Array} files - 文件列表
  * @param {string} folderPath - 文件夹路径
- * @param {boolean} primaryNoIndex - 主图无序号模式
+ * @param {Object} options - 整理选项
  * @returns {Object} 整理结果
  */
-async function organizeFiles(files, folderPath, primaryNoIndex = true) {
+async function organizeFiles(files, folderPath, options = {}) {
   try {
+    const {
+      primaryNoIndex = true,
+      groupByPrefix = false,
+      recursive = false,
+      conflictPolicy = 'keep',
+      sanitizeFolderName = true,
+      caseSensitivePrefix = false,
+      logMoveCsv = true,
+      allowedExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.tif', '.tiff', '.gif'],
+      maxFolderNameLength = 100
+    } = options
+    
     // 1. 解析和分组文件
     const groups = groupFilesByBase(files)
     
@@ -307,15 +354,55 @@ async function organizeFiles(files, folderPath, primaryNoIndex = true) {
     const renamePlan = generateRenamePlan(groups, primaryNoIndex)
     
     // 3. 执行重命名
-    const results = await executeRenamePlan(renamePlan, folderPath)
+    const renameResults = await executeRenamePlan(renamePlan, folderPath)
     
-    // 4. 统计信息
+    // 4. 如果启用按前缀分文件夹，执行分组操作
+    let prefixGroupingResults = null
+    if (groupByPrefix) {
+      try {
+        console.log('开始执行按前缀分文件夹...')
+        const prefixOptions = {
+          recursive,
+          conflictPolicy,
+          sanitizeFolderName,
+          caseSensitivePrefix,
+          logMoveCsv,
+          allowedExtensions,
+          maxFolderNameLength
+        }
+        
+        // 获取重命名后的文件列表
+        const renamedFiles = await getRenamedFilesList(folderPath, renameResults.success)
+        console.log(`重命名后的文件数量: ${renamedFiles.length}`)
+        
+        prefixGroupingResults = await executePrefixGrouping(renamedFiles, folderPath, prefixOptions)
+        console.log('按前缀分文件夹执行完成:', prefixGroupingResults)
+        
+      } catch (error) {
+        console.error('按前缀分文件夹失败:', error.message)
+        prefixGroupingResults = {
+          success: [],
+          failed: [],
+          skipped: [],
+          createdFolders: new Set(),
+          moveLog: []
+        }
+      }
+    }
+    
+    // 5. 统计信息
     const stats = {
       totalFiles: files.length,
       processedFiles: groups.size,
-      renamedFiles: results.success.length,
-      failedFiles: results.failed.length,
-      skippedFiles: results.skipped.length,
+      renamedFiles: renameResults.success.length,
+      failedFiles: renameResults.failed.length,
+      skippedFiles: renameResults.skipped.length,
+      prefixGrouping: groupByPrefix ? {
+        movedFiles: prefixGroupingResults?.success?.length || 0,
+        failedFiles: prefixGroupingResults?.failed?.length || 0,
+        skippedFiles: prefixGroupingResults?.skipped?.length || 0,
+        createdFolders: prefixGroupingResults?.createdFolders?.size || 0
+      } : null,
       groups: Array.from(groups.keys()).sort((a, b) => {
         // 自然排序：数值感知排序
         return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
@@ -325,7 +412,10 @@ async function organizeFiles(files, folderPath, primaryNoIndex = true) {
     return {
       success: true,
       stats,
-      results,
+      results: {
+        rename: renameResults,
+        prefixGrouping: prefixGroupingResults
+      },
       renamePlan
     }
     
@@ -420,6 +510,7 @@ module.exports = {
   sortGroupFiles,
   generateRenamePlan,
   executeRenamePlan,
+  getRenamedFilesList,
   organizeFiles,
   previewRenamePlan,
   SUPPORTED_EXTENSIONS,

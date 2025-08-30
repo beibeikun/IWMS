@@ -13,11 +13,11 @@
             <el-icon><Sort /></el-icon>
           </div>
           <h3>整理排序</h3>
-          <p>按名称、大小、日期等条件对文件进行智能排序和整理</p>
+          <p>对文件进行智能编号排序和整理</p>
           <div class="card-features">
             <el-tag size="small" type="success">智能排序</el-tag>
             <el-tag size="small" type="primary">批量整理</el-tag>
-            <el-tag size="small" type="warning">自定义规则</el-tag>
+            <el-tag size="small" type="warning">轻量高速</el-tag>
           </div>
         </div>
       </el-card>

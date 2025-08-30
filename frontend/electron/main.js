@@ -195,9 +195,29 @@ ipcMain.handle('preview-file-organize', async (event, { files, primaryNoIndex })
 /**
  * 执行文件整理
  */
-ipcMain.handle('execute-file-organize', async (event, { files, folderPath, primaryNoIndex }) => {
+ipcMain.handle('execute-file-organize', async (event, { 
+  files, 
+  folderPath, 
+  primaryNoIndex,
+  groupByPrefix,
+  recursive,
+  conflictPolicy,
+  sanitizeFolderName,
+  caseSensitivePrefix,
+  logMoveCsv
+}) => {
   try {
-    return await organizeFiles(files, folderPath, primaryNoIndex)
+    const options = {
+      primaryNoIndex,
+      groupByPrefix,
+      recursive,
+      conflictPolicy,
+      sanitizeFolderName,
+      caseSensitivePrefix,
+      logMoveCsv
+    }
+    
+    return await organizeFiles(files, folderPath, options)
   } catch (error) {
     throw new Error(`执行文件整理失败: ${error.message}`)
   }
