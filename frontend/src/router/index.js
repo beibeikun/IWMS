@@ -82,6 +82,14 @@ const routes = [
     meta: {
       title: '系统设置 - IWMS'
     }
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: () => import('../views/About.vue'),
+    meta: {
+      title: '关于 - IWMS'
+    }
   }
 ]
 

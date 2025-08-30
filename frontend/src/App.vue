@@ -136,6 +136,13 @@
                 <span>系统设置</span>
               </div>
             </el-menu-item>
+            
+            <el-menu-item index="about">
+              <div class="menu-item-content">
+                <el-icon><InfoFilled /></el-icon>
+                <span>关于</span>
+              </div>
+            </el-menu-item>
           </el-menu>
         </el-aside>
         
@@ -195,6 +202,7 @@ export default {
       if (path === '/') return 'home'
       if (path === '/file-operations') return 'file-operations-main'
       if (path === '/file-operations/organize') return 'file-operations-organize'
+      if (path === '/about') return 'about'
       return path.substring(1) // 移除开头的 '/'
     })
     

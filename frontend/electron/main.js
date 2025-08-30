@@ -34,7 +34,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, '../assets/icon.png'),
-    title: 'IWMS - 智能文件管理解决方案'
+    title: 'IWMS - 智能文件管理解决方案 v1.0.0'
   })
 
   // 加载应用
@@ -445,6 +445,73 @@ ipcMain.handle('export-settings', async (event, settings) => {
       success: false,
       error: error.message
     }
+  }
+})
+
+/**
+ * 获取包信息
+ */
+ipcMain.handle('get-package-info', async () => {
+  try {
+    const packagePath = path.join(__dirname, '../package.json')
+    const packageData = await fs.readJson(packagePath)
+    
+    return {
+      version: packageData.version || '1.0.0',
+      name: packageData.name || 'IWMS',
+      description: packageData.description || '智能文件管理系统',
+      author: packageData.author || 'IWMS Team',
+      license: packageData.license || 'MIT',
+      buildDate: new Date().toISOString().split('T')[0]
+    }
+  } catch (error) {
+    console.error('获取包信息失败:', error)
+    return {
+      version: '1.0.0',
+      name: 'IWMS',
+      description: '智能文件管理系统',
+      author: 'IWMS Team',
+      license: 'MIT',
+      buildDate: new Date().toISOString().split('T')[0]
+    }
+  }
+})
+
+/**
+ * 获取版本信息
+ */
+ipcMain.handle('get-versions', async () => {
+  try {
+    return {
+      node: process.version,
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      platform: process.platform,
+      arch: process.arch
+    }
+  } catch (error) {
+    console.error('获取版本信息失败:', error)
+    return {
+      node: 'Unknown',
+      electron: 'Unknown',
+      chrome: 'Unknown',
+      platform: process.platform || 'Unknown',
+      arch: process.arch || 'Unknown'
+    }
+  }
+})
+
+/**
+ * 打开外部链接
+ */
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    const { shell } = require('electron')
+    await shell.openExternal(url)
+    return { success: true }
+  } catch (error) {
+    console.error('打开外部链接失败:', error)
+    return { success: false, error: error.message }
   }
 })
 

@@ -198,5 +198,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * 
    * @returns {Promise<Object>} 导入的设置对象
    */
-  importSettings: () => ipcRenderer.invoke('import-settings')
+  importSettings: () => ipcRenderer.invoke('import-settings'),
+
+  // ==================== 版本信息相关 API ====================
+
+  /**
+   * 获取包信息
+   * 获取 package.json 中的版本和基本信息
+   * 
+   * @returns {Promise<Object>} 包信息对象
+   */
+  getPackageInfo: () => ipcRenderer.invoke('get-package-info'),
+
+  /**
+   * 获取版本信息
+   * 获取 Node.js、Electron 等版本信息
+   * 
+   * @returns {Promise<Object>} 版本信息对象
+   */
+  getVersions: () => ipcRenderer.invoke('get-versions'),
+
+  /**
+   * 打开外部链接
+   * 使用系统默认浏览器打开指定URL
+   * 
+   * @param {string} url - 要打开的URL
+   * @returns {Promise<Object>} 操作结果
+   */
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 })
